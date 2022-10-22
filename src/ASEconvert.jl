@@ -3,14 +3,14 @@ using PythonCall
 using AtomsBase
 using Unitful
 
-export ase_atoms
+export convert_ase
 export ase
 export pyconvert
 
 const ase = PythonCall.pynew()
 function __init__()
     PythonCall.pycopy!(ase, pyimport("ase"))
-    PythonCall.pyconvert_add_rule("ase.atoms:Atoms", AbstractSystem, convert_ase)
+    PythonCall.pyconvert_add_rule("ase.atoms:Atoms", AbstractSystem, ase_to_system)
 
     # Make a bunch of submodules available
     for sub in ("ase.io", "ase.build", "ase.lattice", "ase.visualize")
@@ -18,7 +18,7 @@ function __init__()
     end
 end
 
-function convert_ase(S::Type{<:AbstractSystem}, ase_atoms::Py)
+function ase_to_system(S::Type{<:AbstractSystem}, ase_atoms::Py)
     box = [pyconvert(Vector, ase_atoms.cell[i])u"Å" for i = 0:2]
 
     atnums     = pyconvert(Vector, ase_atoms.get_atomic_numbers())
@@ -37,12 +37,12 @@ function convert_ase(S::Type{<:AbstractSystem}, ase_atoms::Py)
     PythonCall.pyconvert_return(atomic_system(atoms, box, bcs; info...))
 end
 
-function ase_atoms(system::AbstractSystem{D}) where {D}
+function convert_ase(system::AbstractSystem{D}) where {D}
     n_atoms = length(system)
 
     cell = zeros(3, 3)
-    for i = 1:D
-        cell[i, 1:D] = ustrip.(uconvert.(u"Å", bounding_box(system, i)))
+    for (i, v) in enumerate(bounding_box(system))
+        cell[i, 1:D] = ustrip.(uconvert.(u"Å", v))
     end
 
     positions = zeros(n_atoms, 3)
@@ -58,9 +58,11 @@ function ase_atoms(system::AbstractSystem{D}) where {D}
         end
     end
 
-    pbc = [boundary_conditions(system, i) == Periodic() for i = 1:D]
-    symbols = atomic_symbol(system)
+    pbc = map(isequal(Periodic()), boundary_conditions(system))
+    symbols = String.(atomic_symbol(system))
     ase.Atoms(; symbols, positions, cell, pbc, velocities)
 end
+
+# TODO Could have a convert_ase(Vector{AbstractSystem}) to make an ASE trajectory
 
 end

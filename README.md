@@ -26,6 +26,6 @@ atoms_ase = ase.build.bulk("Si") * (4, 1, 1)
 atoms_ab = pyconvert(AbstractSystem, atoms_ase)
 
 # Convert back to ASE and create a vacancy
-newatoms_ase = ase_atoms(atoms_ab)
+newatoms_ase = convert_ase(atoms_ab)
 newatoms_ase.pop(4)
 ```
