@@ -2,6 +2,7 @@ using ASEconvert
 using AtomsBase
 using Test
 using Unitful
+using LinearAlgebra
 import ExtXYZ
 
 function test_approx_eq(s::AbstractSystem, t::AbstractSystem;
