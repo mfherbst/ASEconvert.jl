@@ -28,12 +28,12 @@ function ase_to_system(S::Type{<:AbstractSystem}, ase_atoms::Py)
 
     atoms = [AtomsBase.Atom(atnums[i], positions[i, :]u"Å", velocities[i, :]u"Å/s";
                             magnetic_moment=magmoms[i])
-             for i in 1:length(atnums)]
+             for i = 1:length(atnums)]
 
     bcs = [p ? Periodic() : DirichletZero() for p in pyconvert(Vector, ase_atoms.pbc)]
 
     # Parse extra data in info struct
-    info = pyconvert(Dict{Symbol, Any}, ase_atoms.info)
+    info = pyconvert(Dict{Symbol,Any}, ase_atoms.info)
     PythonCall.pyconvert_return(atomic_system(atoms, box, bcs; info...))
 end
 
@@ -46,14 +46,14 @@ function convert_ase(system::AbstractSystem{D}) where {D}
     end
 
     positions = zeros(n_atoms, 3)
-    for at in 1:n_atoms
+    for at = 1:n_atoms
         positions[at, 1:D] = ustrip.(u"Å", position(system, at))
     end
 
     velocities = nothing
     if !ismissing(velocity(system))
         velocities = zeros(n_atoms, 3)
-        for at in 1:n_atoms
+        for at = 1:n_atoms
             velocities[at, 1:D] = ustrip.(u"Å/s", velocity(system, at))
         end
     end
