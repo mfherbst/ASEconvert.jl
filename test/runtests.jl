@@ -112,11 +112,13 @@ end
         @test velocity(bulk_Fe) == [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]u"Å/s"
     end
 
-    @testset "Writing files using ASE" begin mktempdir() do d
-        file = joinpath(d, "output.xyz")
-        ase.io.write(file, convert_ase(system))
+    @testset "Writing files using ASE" begin
+        mktempdir() do d
+            file = joinpath(d, "output.xyz")
+            ase.io.write(file, convert_ase(system))
 
-        newsystem = ExtXYZ.Atoms(ExtXYZ.read_frame(file))
-        test_approx_eq(system, newsystem; atol=1e-7, ignore_missing=true)
-    end end
+            newsystem = ExtXYZ.Atoms(ExtXYZ.read_frame(file))
+            test_approx_eq(system, newsystem; atol=1e-7, ignore_missing=true)
+        end
+    end
 end

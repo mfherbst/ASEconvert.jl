@@ -97,7 +97,7 @@ function convert_ase(system::AbstractSystem{D}) where {D}
         # TODO Implement and make use of a property interface on the system level
         info = Dict(string(k) => v for (k, v) in system.data)
     else
-        info = Dict{String,Any}()
+        info = Dict{String, Any}()
     end
 
     ase.Atoms(; symbols, positions, cell, pbc, velocities, info, extra...)
