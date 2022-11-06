@@ -16,7 +16,6 @@ For both the package makes use of the
 This can be used for example as follows
 ```julia
 using ASEconvert
-using AtomsBase
 using DFTK
 
 # Make a silicon supercell using ASE

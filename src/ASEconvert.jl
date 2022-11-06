@@ -5,8 +5,12 @@ using Unitful
 
 export convert_ase
 export ase
-export pyconvert
+export pyconvert       # Reexport from PythonCall
+export AbstractSystem  # Reexport from AtomsBase
 
+"""
+Global constant representing the `ase` python module available from Julia.
+"""
 const ase = PythonCall.pynew()
 function __init__()
     PythonCall.pycopy!(ase, pyimport("ase"))
@@ -40,6 +44,13 @@ function ase_to_system(S::Type{<:AbstractSystem}, ase_atoms::Py)
     PythonCall.pyconvert_return(atomic_system(atoms, box, bcs; info...))
 end
 
+"""
+    convert_ase(system::AbstractSystem)
+
+Convert a passed `system` (which satisfies the AtomsBase.AbstractSystem interface) to an
+`ase.Atoms` datastructure. Conversions to other ASE objects from equivalent Julia objects
+may be added in the future.
+"""
 function convert_ase(system::AbstractSystem{D}) where {D}
     D != 3 && @warn "1D and 2D systems not yet fully supported."
 
@@ -104,5 +115,7 @@ function convert_ase(system::AbstractSystem{D}) where {D}
 end
 
 # TODO Could have a convert_ase(Vector{AbstractSystem}) to make an ASE trajectory
+# TODO Could have a convert_ase(Vector{Vector{Unitful}}) to make an ASE cell
+# TODO Could have a way to make an ASE calculator from an InteratomicPotential object
 
 end
