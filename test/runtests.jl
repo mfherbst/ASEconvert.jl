@@ -97,6 +97,16 @@ end
         @test pyconvert(Int, ase_atoms.info["extra_data"]) == 42
     end
 
+    @testset "Conversion to ASE ignores unitful quantities" begin
+        dropsystem1 = atomic_system(atoms, box, bcs, extra_data=42, len=12u"m")
+        dropsystem2 = atomic_system(atoms, box, bcs, extra_data=42, mass=[2u"kg", 1u"kg"])
+        for sys in (dropsystem1, dropsystem2)
+            ase_atoms = @test_logs((:warn, r"Unitful quantities are not yet supported"),
+                                   convert_ase(sys))
+            @test pyconvert(Int, ase_atoms.info["extra_data"]) == 42
+        end
+    end
+
     @testset "Conversion AtomsBase -> ASE -> AtomsBase" begin
         newsystem = pyconvert(FlexibleSystem, convert_ase(system))
         test_approx_eq(system, newsystem)

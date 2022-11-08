@@ -102,13 +102,19 @@ function convert_ase(system::AbstractSystem{D}) where {D}
     # Map extra system properties
     # TODO Probably we need some mechanism to map keys which happen to be "official"
     #      ASE keys to their ASE counterparts.
+    info = Dict{String, Any}()
     if system isa FlexibleSystem
         # Here we can retrieve extra data
         # TODO not a good idea to directly access the field
         # TODO Implement and make use of a property interface on the system level
-        info = Dict(string(k) => v for (k, v) in system.data)
-    else
-        info = Dict{String, Any}()
+        for (k, v) in system.data
+            if v isa Quantity || (v isa AbstractArray && eltype(v) <: Quantity)
+                @warn("Unitful quantities are not yet supported in convert_ase. " *
+                      "Ignoring key $k")
+            else
+                info[string(k)] = v
+            end
+        end
     end
 
     ase.Atoms(; symbols, positions, cell, pbc, velocities, info, extra...)
