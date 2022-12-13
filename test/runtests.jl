@@ -14,7 +14,7 @@ function test_approx_eq(s::AbstractSystem, t::AbstractSystem;
         @test ismissing(velocity(s)) == ismissing(velocity(t))
     end
 
-    @test maximum(norm, position(s) - position(t)) < atol * u"Å"
+    @test maximum(norm, position(s)     - position(t))     < atol * u"Å"
     @test maximum(norm, bounding_box(s) - bounding_box(t)) < atol * u"Å"
 
     if !ismissing(velocity(s)) && !ismissing(velocity(t))
@@ -25,8 +25,8 @@ function test_approx_eq(s::AbstractSystem, t::AbstractSystem;
         @test method(s) == method(t)
     end
 
-    extra_properties = (:magnetic_moment, )
-    for prop in extra_properties
+    extra_atomic_props = (:charge, :covalent_radius, :vdw_radius, :magnetic_moment)
+    for prop in extra_atomic_props
         for (at_s, at_t) in zip(s, t)
             if hasproperty(at_s, prop) && hasproperty(at_t, prop)
                 @test getproperty(at_s, prop) == getproperty(at_t, prop)
@@ -39,46 +39,47 @@ function test_approx_eq(s::AbstractSystem, t::AbstractSystem;
     end
 end
 
-function make_test_system()
-    # Store some random data in an AtomsBase flexible system
+function make_test_system(; store_velocities=true)
+    # Generate some random data to store in Atoms
     n_atoms    = 5
     positions  = [randn(3) for _ = 1:n_atoms]u"Å"
     velocities = [randn(3) for _ = 1:n_atoms]u"Å/s"
     symbols    = [:H, :H, :C, :N, :He]
+    numbers    = [1, 1, 6, 5, 2]
+    charges    = [2, 1, 3.0, -1.0, 0.0]u"e_au"
+    masses     = randn(n_atoms)u"u"
+    vdw_radii  = randn(n_atoms)u"Å"
+    covalent_radii   = randn(n_atoms)u"Å"
     magnetic_moments = [0.0, 0.0, 1.0, -1.0, 0.0]
 
     atoms = map(1:n_atoms) do i
-        Atom(symbols[i], positions[i], velocities[i];
-             magnetic_moment=magnetic_moments[i])
+        atargs = (atomic_number=numbers[i],
+                  atomic_symbol=symbols[i],
+                  atomic_mass=masses[i],
+                  vdw_radius=vdw_radii[i],
+                  covalent_radius=covalent_radii[i],
+                  charge=charges[i],
+                  magnetic_moment=magnetic_moments[i])
+        if store_velocities
+            Atom(symbols[i], positions[i], velocities[i]; atargs...)
+        else
+            Atom(symbols[i], positions[i]; atargs...)
+        end
     end
     box = [[1.50304, 0.850344, 0.717239],
            [0.36113, 0.008144, 0.814712],
            [0.06828, 0.381122, 0.129081]]u"Å"
     bcs = [Periodic(), Periodic(), DirichletZero()]
-    atomic_system(atoms, box, bcs, extra_data=42)
+
+    atomic_system(atoms, box, bcs;
+                  extra_data=42, charge=-1u"e_au", multiplicity=2)
 end
 
 @testset "ASEconvert.jl" begin
-    # Store some random data in an AtomsBase flexible system
-    n_atoms    = 5
-    positions  = [randn(3) for _ = 1:n_atoms]u"Å"
-    velocities = [randn(3) for _ = 1:n_atoms]u"Å/s"
-    symbols    = [:H, :H, :C, :N, :He]
-    magnetic_moments = [0.0, 0.0, 1.0, -1.0, 0.0]
-
-    atoms = map(1:n_atoms) do i
-        Atom(symbols[i], positions[i], velocities[i];
-             magnetic_moment=magnetic_moments[i])
-    end
-    box = [[1.50304, 0.850344, 0.717239],
-           [0.36113, 0.008144, 0.814712],
-           [0.06828, 0.381122, 0.129081]]u"Å"
-    bcs = [Periodic(), Periodic(), DirichletZero()]
-    system = atomic_system(atoms, box, bcs, extra_data=42)
-
     # TODO Check handling of missing for velocities
 
     @testset "Conversion to ASE" begin
+        system = make_test_system()
         ase_atoms = convert_ase(system)
 
         D = 3
@@ -95,6 +96,9 @@ end
         end
         @test pyconvert(Vector, ase_atoms.pbc) == [true, true, false]
         @test pyconvert(Int, ase_atoms.info["extra_data"]) == 42
+
+
+        # TODO Test the other properties
     end
 
     @testset "Conversion to ASE ignores unitful quantities" begin
@@ -108,6 +112,7 @@ end
     end
 
     @testset "Conversion AtomsBase -> ASE -> AtomsBase" begin
+        system = make_test_system()
         newsystem = pyconvert(FlexibleSystem, convert_ase(system))
         test_approx_eq(system, newsystem)
     end
@@ -123,6 +128,7 @@ end
     end
 
     @testset "Writing files using ASE" begin
+        system = make_test_system()
         mktempdir() do d
             file = joinpath(d, "output.xyz")
             ase.io.write(file, convert_ase(system))

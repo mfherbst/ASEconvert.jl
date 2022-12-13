@@ -19,7 +19,7 @@ using ASEconvert
 using DFTK
 
 # Make a silicon supercell using ASE
-atoms_ase = ase.build.bulk("Si") * (4, 1, 1)
+atoms_ase = ase.build.bulk("Si") * pytuple((4, 1, 1))
 
 # Convert to an AtomsBase-compatible structure
 atoms_ab = pyconvert(AbstractSystem, atoms_ase)
