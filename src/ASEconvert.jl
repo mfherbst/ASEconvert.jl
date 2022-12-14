@@ -2,6 +2,8 @@ module ASEconvert
 using PythonCall
 using AtomsBase
 using Unitful
+using UnitfulAtomic
+import PeriodicTable
 
 export convert_ase
 export ase
@@ -34,36 +36,19 @@ function ase_to_system(S::Type{<:AbstractSystem}, ase_atoms::Py)
     charges    = pyconvert(Vector, ase_atoms.get_initial_charges())
     ase_info   = pyconvert(Dict{String,Any}, ase_atoms.info)
 
-    # Extract atomic info keys
-    ase_info_atomic = Dict{Symbol,Any}()
-    for (k, v) in ase_info
-        if startswith(k, "atom__")
-            key = Symbol(k[7:end])
-            if key in (:vdw_radius, :covalent_radius)
-                ase_info_atomic[key] = v * u"Å"
-            else
-                @warn "Ignoring unknown atomic key: $k"
-            end
-        end
-    end
-
     atoms = map(1:length(atnums)) do i
-        extra = Dict(k => v[i] for (k, v) in ase_info_atomic)
         AtomsBase.Atom(atnums[i], positions[i, :]u"Å", velocities[i, :]u"Å/s";
                        atomic_symbol=Symbol(atsyms[i]),
                        atomic_number=atnums[i],
                        atomic_mass=atmasses[i]u"u",
                        magnetic_moment=magmoms[i],
-                       charge=charges[i]u"e_au",
-                       extra...)
+                       charge=charges[i]u"e_au")
     end
 
     # Parse extra data in info struct
     info = Dict{Symbol, Any}()
     for (k, v) in ase_info
-        if startswith(k, "atom__")
-            continue
-        elseif k == "charge"
+        if k == "charge"
             info[Symbol(k)] = v * u"e_au"
         else
             info[Symbol(k)] = v
@@ -79,16 +64,24 @@ end
 
 Convert a passed `system` (which satisfies the AtomsBase.AbstractSystem interface) to an
 `ase.Atoms` datastructure. Conversions to other ASE objects from equivalent Julia objects
-may be added in the future.
+may be added as additional methods in the future.
 """
 function convert_ase(system::AbstractSystem{D}) where {D}
     D != 3 && @warn "1D and 2D systems not yet fully supported."
 
     n_atoms = length(system)
     pbc     = map(isequal(Periodic()), boundary_conditions(system))
-    symbols = map(String, atomic_symbol(system))
     numbers = atomic_number(system)
-    masses  = atomic_mass(system)
+    masses  = ustrip.(u"u", atomic_mass(system))
+
+    symbols_match = [
+        PeriodicTable.elements[atnum].symbol == string(atomic_symbol(system, i))
+        for (i, atnum) in enumerate(numbers)
+    ]
+    if !all(symbols_match)
+        @warn("Mismatch between atomic numbers and atomic symbols, which is not " *
+              "supported in ASE. Atomic numbers take preference.")
+    end
 
     cell = zeros(3, 3)
     for (i, v) in enumerate(bounding_box(system))
@@ -139,17 +132,21 @@ function convert_ase(system::AbstractSystem{D}) where {D}
         end
     end
 
-    # Map extra atomic properties not available as native ASE atomic properties
-    # With the upcoming interface to access generic properties one could also map
-    # all extra atomic properties here. For now we just support a few (on top
-    # of the :charge and :magnetic_moments natively supported by ASE).
-    for key in (:covalent_radius, :vdw_radius)
-        if any(hasproperty(atom, key) for atom in system)
-            info["atom__" * string(key)] = ustrip(u"Å", getproperty(atom, key))
+    # We don't map any extra properties, which are not available in ASE as this
+    # only causes a mess: ASE could do something to the atoms, but not taking
+    # care of the extra properties, thus rendering the extra properties invalid
+    # without the user noticing.
+    if first(system) isa Atom
+        # TODO not a good idea to directly access the field
+        # TODO Implement and make use of a property interface on the atom level
+        for k in keys(system[1].data)
+            if !(k in (:charge, :magnetic_moment))
+                @warn "Skipping atomic property $k, which is not supported in ASE."
+            end
         end
     end
 
-    ase.Atoms(; symbols, positions, numbers, masses, magmoms, charges,
+    ase.Atoms(; positions, numbers, masses, magmoms, charges,
               cell, pbc, velocities, info)
 end
 
