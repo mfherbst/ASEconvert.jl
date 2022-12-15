@@ -1,113 +1,82 @@
 using ASEconvert
 using AtomsBase
 using Test
-using Unitful
-using LinearAlgebra
-import ExtXYZ
+include("common.jl")
 
-# TODO Test reduced dimension
-
-function test_approx_eq(s::AbstractSystem, t::AbstractSystem;
-                        atol=1e-14, ignore_missing=false)
-    # TODO Introduce an == / ≈ method in the AbstractSystem and use it here
-    if !ignore_missing
-        @test ismissing(velocity(s)) == ismissing(velocity(t))
-    end
-
-    @test maximum(norm, position(s) - position(t)) < atol * u"Å"
-    @test maximum(norm, bounding_box(s) - bounding_box(t)) < atol * u"Å"
-
-    if !ismissing(velocity(s)) && !ismissing(velocity(t))
-        @test maximum(norm, velocity(s) - velocity(t)) < atol * u"Å/s"
-    end
-
-    for method in (atomic_mass, atomic_symbol, atomic_number, boundary_conditions)
-        @test method(s) == method(t)
-    end
-
-    extra_properties = (:magnetic_moment, )
-    for prop in extra_properties
-        for (at_s, at_t) in zip(s, t)
-            if hasproperty(at_s, prop) && hasproperty(at_t, prop)
-                @test getproperty(at_s, prop) == getproperty(at_t, prop)
-            end
-        end
-    end
-
-    if s isa FlexibleSystem && t isa FlexibleSystem
-        @test s.data == t.data  # Check extra data
-    end
-end
-
-function make_test_system()
-    # Store some random data in an AtomsBase flexible system
-    n_atoms    = 5
-    positions  = [randn(3) for _ = 1:n_atoms]u"Å"
-    velocities = [randn(3) for _ = 1:n_atoms]u"Å/s"
-    symbols    = [:H, :H, :C, :N, :He]
-    magnetic_moments = [0.0, 0.0, 1.0, -1.0, 0.0]
-
-    atoms = map(1:n_atoms) do i
-        Atom(symbols[i], positions[i], velocities[i];
-             magnetic_moment=magnetic_moments[i])
-    end
-    box = [[1.50304, 0.850344, 0.717239],
-           [0.36113, 0.008144, 0.814712],
-           [0.06828, 0.381122, 0.129081]]u"Å"
-    bcs = [Periodic(), Periodic(), DirichletZero()]
-    atomic_system(atoms, box, bcs, extra_data=42)
-end
 
 @testset "ASEconvert.jl" begin
-    # Store some random data in an AtomsBase flexible system
-    n_atoms    = 5
-    positions  = [randn(3) for _ = 1:n_atoms]u"Å"
-    velocities = [randn(3) for _ = 1:n_atoms]u"Å/s"
-    symbols    = [:H, :H, :C, :N, :He]
-    magnetic_moments = [0.0, 0.0, 1.0, -1.0, 0.0]
-
-    atoms = map(1:n_atoms) do i
-        Atom(symbols[i], positions[i], velocities[i];
-             magnetic_moment=magnetic_moments[i])
+    function make_ase_system(args...; drop_atprop=Symbol[], kwargs...)
+        # ASE does not support vdw_radius and covalent_radius
+        dropkeys = [:covalent_radius, :vdw_radius]
+        make_test_system(args...; drop_atprop=append!(drop_atprop, dropkeys), kwargs...)
     end
-    box = [[1.50304, 0.850344, 0.717239],
-           [0.36113, 0.008144, 0.814712],
-           [0.06828, 0.381122, 0.129081]]u"Å"
-    bcs = [Periodic(), Periodic(), DirichletZero()]
-    system = atomic_system(atoms, box, bcs, extra_data=42)
 
-    # TODO Check handling of missing for velocities
+    # TODO Test reduced dimension
 
-    @testset "Conversion to ASE" begin
-        ase_atoms = convert_ase(system)
+    @testset "Conversion to ASE (3D, with velocity)" begin
+        system, atoms, atprop, sysprop, box, bcs = make_test_system()
+        ase_atoms = @test_logs((:warn, r"Skipping atomic property vdw_radius"),
+                               (:warn, r"Skipping atomic property covalent_radius"),
+                               match_mode=:any, convert_ase(system))
 
         D = 3
         for i = 1:D
             @test pyconvert(Vector, ase_atoms.cell[i - 1]) ≈ ustrip.(u"Å", box[i]) atol=1e-14
         end
+        @assert bcs == [Periodic(), Periodic(), DirichletZero()]
+        @test pyconvert(Vector, ase_atoms.pbc) == [true, true, false]
 
         for (i, atom) in enumerate(ase_atoms)
-            @test pyconvert(Vector, atom.position) ≈ ustrip.(u"Å", positions[i]) atol=1e-14
-            @test pyconvert(String, atom.symbol) == string(symbols[i])
-            @test pyconvert(Float64, atom.magmom) == magnetic_moments[i]
+            @test(pyconvert(Vector, atom.position)
+                  ≈ ustrip.(u"Å", atprop.position[i]), atol=1e-14)
             @test(pyconvert(Vector, ase_atoms.get_velocities()[i - 1])
-                  ≈ ustrip.(u"Å/s", velocities[i]), atol=1e-14)
+                  ≈ ustrip.(u"Å/s", atprop.velocity[i]), atol=1e-14)
+
+            @test pyconvert(String,  atom.symbol) == string(atprop.atomic_symbol[i])
+            @test pyconvert(Int,     atom.number) == atprop.atomic_number[i]
+            @test pyconvert(Float64, atom.mass)   == ustrip(u"u", atprop.atomic_mass[i])
+            @test pyconvert(Float64, atom.magmom) == atprop.magnetic_moment[i]
+            @test pyconvert(Float64, atom.charge) == ustrip(u"e_au", atprop.charge[i])
         end
-        @test pyconvert(Vector, ase_atoms.pbc) == [true, true, false]
-        @test pyconvert(Int, ase_atoms.info["extra_data"]) == 42
+        @test pyconvert(Int, ase_atoms.info["extra_data"])   == sysprop.extra_data
+        @test pyconvert(Int, ase_atoms.info["multiplicity"]) == sysprop.multiplicity
+        @test pyconvert(Float64, ase_atoms.info["charge"])   == ustrip(u"e_au", sysprop.charge)
     end
 
-    @testset "Conversion to ASE ignores unitful quantities" begin
-        dropsystem1 = atomic_system(atoms, box, bcs, extra_data=42, len=12u"m")
-        dropsystem2 = atomic_system(atoms, box, bcs, extra_data=42, mass=[2u"kg", 1u"kg"])
+    @testset "Conversion to ASE (without velocities)" begin
+        system = make_ase_system(drop_atprop=[:velocity]).system
+        ase_atoms = convert_ase(system)
+        for (i, atom) in enumerate(ase_atoms)
+            @test iszero(pyconvert(Vector, ase_atoms.get_velocities()[i - 1]))
+        end
+    end
+
+    @testset "Warning about mismatch between atomic symbols and numbers" begin
+        extra_atprop = (atomic_symbol=[:H, :H, :C, :N, :He],
+                        atomic_number=[1, 2, 3, 4, 5])
+        system = make_ase_system(; extra_atprop).system
+        ase_atoms = @test_logs((:warn, r"Mismatch between atomic numbers"),
+                               match_mode=:any, convert_ase(system))
+
+        expected_symbols = ["H", "He", "Li", "Be", "B"]
+        for (i, atom) in enumerate(ase_atoms)
+            @test pyconvert(Int, atom.number)    == i
+            @test pyconvert(String, atom.symbol) == expected_symbols[i]
+        end
+    end
+
+    @testset "Ignoring of unitful quantities" begin
+        dropsystem1 = make_ase_system(; extra_sysprop=(; len=12u"m")).system
+        dropsystem2 = make_ase_system(; extra_sysprop=(; mass=[2u"kg", 1u"kg"])).system
         for sys in (dropsystem1, dropsystem2)
             ase_atoms = @test_logs((:warn, r"Unitful quantities are not yet supported"),
-                                   convert_ase(sys))
+                                   match_mode=:any, convert_ase(sys))
             @test pyconvert(Int, ase_atoms.info["extra_data"]) == 42
         end
     end
 
     @testset "Conversion AtomsBase -> ASE -> AtomsBase" begin
+        system = make_ase_system().system
         newsystem = pyconvert(FlexibleSystem, convert_ase(system))
         test_approx_eq(system, newsystem)
     end
@@ -122,13 +91,37 @@ end
         @test velocity(bulk_Fe) == [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]u"Å/s"
     end
 
-    @testset "Writing files using ASE" begin
+    @testset "Writing / reading files using ASE" begin
+        system = make_ase_system().system
         mktempdir() do d
             file = joinpath(d, "output.xyz")
             ase.io.write(file, convert_ase(system))
+            newsystem = pyconvert(FlexibleSystem, ase.io.read(file))
+            test_approx_eq(system, newsystem; atol=1e-6)
+        end
+    end
 
+    @testset "Writing files using ASE, reading using ExtXYZ" begin
+        using PeriodicTable
+        import ExtXYZ
+
+        # Unfortunately the conventions used in ExtXYZ for storing extra
+        # properties are *not* the same in ASE and ExtXYZ, therefore writing
+        # in one and reading in another is not loss-free. We thus drop some
+        # special things (atomic masses, magmoms, charges)
+        atomic_symbol = [:H, :H, :C, :N, :He]
+        atomic_number = [1, 1, 6, 7, 2]
+        atomic_mass   = [elements[at].atomic_mass for at in atomic_number]
+        extra_atprop = (; atomic_symbol, atomic_number, atomic_mass)
+
+        system = make_ase_system(; extra_atprop, drop_atprop=[:velocity]).system
+        mktempdir() do d
+            file = joinpath(d, "output.xyz")
+            ase.io.write(file, convert_ase(system))
             newsystem = ExtXYZ.Atoms(ExtXYZ.read_frame(file))
-            test_approx_eq(system, newsystem; atol=1e-7, ignore_missing=true)
+            # TODO The ignore_atprop is needed because of missing features in AtomsBase.
+            test_approx_eq(system, newsystem;
+                           atol=1e-6, ignore_atprop=[:magnetic_moment, :charge, :velocity])
         end
     end
 end
