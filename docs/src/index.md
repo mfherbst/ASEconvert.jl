@@ -30,17 +30,19 @@ ase.build.surface(ase.build.bulk("Mg"), (1, 1, 0), 4, 0, periodic=true)
 
 ## Conversion from ASE to AtomsBase
 
-```julia
+```@example mg
 using ASEconvert
 using DFTK
 
 # Construct bulk magnesium using ASE and convert to atomsbase
 mg_ase = ase.build.bulk("Mg")
 mg_atb = pyconvert(AbstractSystem, mg_ase)
+```
 
+```@example mg
 # Attach pseudopotentials, construct LDA DFT model and solve for DFT ground state
-system = attach_psp(mg_atb; family="hgh", functional="lda")
-model  = model_LDA(system)
+system = attach_psp(mg_atb; Mg="hgh/lda/mg-q2")
+model  = model_LDA(system; temperature=1e-3, smearing=Smearing.MarzariVanderbilt())
 basis  = PlaneWaveBasis(model; Ecut=20, kgrid=(4, 4, 4))
 scfres = self_consistent_field(basis)
 
@@ -49,15 +51,18 @@ scfres.energies
 
 ## Conversion from AtomsBase to ASE
 
-```@example
+```@example extxyz
 using ASEconvert
 using ExtXYZ
 
 # Read an extxyz file using ExtXYZ.jl.
 frame_xyz = Atoms(read_frame("Mn3Si.extxyz"))
+```
 
-# The returned ExtXYZ.Atoms object is an AtomsBase.AbstractSystem,
-# thus we can directly convert it to an ase.Atoms using `convert_ase`
-# and write it again as an ASE json file
+The returned ExtXYZ.Atoms object is an AtomsBase.AbstractSystem,
+thus we can directly convert it to an ase.Atoms using `convert_ase`
+and write it again as an ASE json file
+
+```@example extxyz
 ase.io.write("out.json", convert_ase(frame_xyz));
 ```

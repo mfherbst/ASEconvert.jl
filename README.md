@@ -16,7 +16,6 @@ For both the package makes use of the
 This can be used for example as follows
 ```julia
 using ASEconvert
-using DFTK
 
 # Make a silicon supercell using ASE
 atoms_ase = ase.build.bulk("Si") * pytuple((4, 1, 1))
