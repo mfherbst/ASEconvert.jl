@@ -6,21 +6,24 @@ using DFTK
 
 # Construct bulk magnesium using ASE and convert to atomsbase
 mg_ase = ase.build.bulk(&quot;Mg&quot;)
-mg_atb = pyconvert(AbstractSystem, mg_ase)
-
-# Attach pseudopotentials, construct LDA DFT model and solve for DFT ground state
-system = attach_psp(mg_atb; family=&quot;hgh&quot;, functional=&quot;lda&quot;)
-model  = model_LDA(system)
+mg_atb = pyconvert(AbstractSystem, mg_ase)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">FlexibleSystem(Mg₂, AtomsBase.Periodic, box=[[3.21, 0.0, 0.0], [-1.605, 2.7799415461480477, 0.0], [0.0, 0.0, 5.21304]]u&quot;Å&quot;)</code></pre><pre><code class="language-julia hljs"># Attach pseudopotentials, construct LDA DFT model and solve for DFT ground state
+system = attach_psp(mg_atb; Mg=&quot;hgh/lda/mg-q2&quot;)
+model  = model_LDA(system; temperature=1e-3, smearing=Smearing.MarzariVanderbilt())
 basis  = PlaneWaveBasis(model; Ecut=20, kgrid=(4, 4, 4))
 scfres = self_consistent_field(basis)
 
-scfres.energies</code></pre><h2 id="Conversion-from-AtomsBase-to-ASE"><a class="docs-heading-anchor" href="#Conversion-from-AtomsBase-to-ASE">Conversion from AtomsBase to ASE</a><a id="Conversion-from-AtomsBase-to-ASE-1"></a><a class="docs-heading-anchor-permalink" href="#Conversion-from-AtomsBase-to-ASE" title="Permalink"></a></h2><pre><code class="language-julia hljs">using ASEconvert
+scfres.energies</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Energy breakdown (in Ha):
+    Kinetic             0.7125694 
+    AtomicLocal         0.3212857 
+    AtomicNonlocal      0.3386598 
+    Ewald               -2.1416410
+    PspCorrection       -0.1823028
+    Hartree             0.0045839 
+    Xc                  -0.8537690
+    Entropy             0.0000048 
+
+    total               -1.800609100652</code></pre><h2 id="Conversion-from-AtomsBase-to-ASE"><a class="docs-heading-anchor" href="#Conversion-from-AtomsBase-to-ASE">Conversion from AtomsBase to ASE</a><a id="Conversion-from-AtomsBase-to-ASE-1"></a><a class="docs-heading-anchor-permalink" href="#Conversion-from-AtomsBase-to-ASE" title="Permalink"></a></h2><pre><code class="language-julia hljs">using ASEconvert
 using ExtXYZ
 
 # Read an extxyz file using ExtXYZ.jl.
-frame_xyz = Atoms(read_frame(&quot;Mn3Si.extxyz&quot;))
-
-# The returned ExtXYZ.Atoms object is an AtomsBase.AbstractSystem,
-# thus we can directly convert it to an ase.Atoms using `convert_ase`
-# and write it again as an ASE json file
-ase.io.write(&quot;out.json&quot;, convert_ase(frame_xyz));</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Python None</code></pre></article><nav class="docs-footer"><a class="docs-footer-nextpage" href="apireference/">API reference »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.23 on <span class="colophon-date" title="Thursday 15 December 2022 06:29">Thursday 15 December 2022</span>. Using Julia version 1.8.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+frame_xyz = Atoms(read_frame(&quot;Mn3Si.extxyz&quot;))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Atoms(Mn₃Si, AtomsBase.Periodic, box=[[3.99986972, 0.0, 0.0], [1.9999348600000004, 3.463988789348149, 0.0], [1.9999348600000004, 1.1546629297827167, 3.2658799505363403]]u&quot;Å&quot;)</code></pre><p>The returned ExtXYZ.Atoms object is an AtomsBase.AbstractSystem, thus we can directly convert it to an ase.Atoms using <code>convert_ase</code> and write it again as an ASE json file</p><pre><code class="language-julia hljs">ase.io.write(&quot;out.json&quot;, convert_ase(frame_xyz));</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Python None</code></pre></article><nav class="docs-footer"><a class="docs-footer-nextpage" href="apireference/">API reference »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.23 on <span class="colophon-date" title="Friday 30 December 2022 11:56">Friday 30 December 2022</span>. Using Julia version 1.8.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
