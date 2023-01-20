@@ -106,48 +106,36 @@ function convert_ase(system::AbstractSystem{D}) where {D}
         end
     end
 
-    charges = nothing
-    if any(hasproperty(atom, :charge) for atom in system)
-        charges = [ustrip(u"e_au", atom.charge) for atom in system]
-    end
-
-    magmoms = nothing
-    if any(hasproperty(atom, :magnetic_moment) for atom in system)
-        magmoms = [atom.magnetic_moment for atom in system]
-    end
-
-
-    # Map extra system properties
-    # TODO Probably we need some mechanism to map keys which happen to be "official"
-    #      AtomsBase keys to their ASE counterparts.
-    info = Dict{String, Any}()
-    if system isa FlexibleSystem
-        # Here we can retrieve extra data
-        # TODO not a good idea to directly access the field
-        # TODO Implement and make use of a property interface on the system level
-        for (k, v) in system.data
-            if k == :charge
-                info[string(k)] = ustrip(u"e_au", v)
-            elseif v isa Quantity || (v isa AbstractArray && eltype(v) <: Quantity)
-                @warn("Unitful quantities are not yet supported in convert_ase. " *
-                      "Ignoring key $k")
-            else
-                info[string(k)] = v
-            end
-        end
-    end
-
-    # We don't map any extra properties, which are not available in ASE as this
+    # We don't map any extra atom properties, which are not available in ASE as this
     # only causes a mess: ASE could do something to the atoms, but not taking
     # care of the extra properties, thus rendering the extra properties invalid
     # without the user noticing.
-    if first(system) isa Atom
-        # TODO not a good idea to directly access the field
-        # TODO Implement and make use of a property interface on the atom level
-        for k in keys(system[1].data)
-            if !(k in (:charge, :magnetic_moment))
-                @warn "Skipping atomic property $k, which is not supported in ASE."
-            end
+    charges = nothing
+    magmoms = nothing
+    for key in atomkeys(system)
+        if key in (:position, :velocity, :atomic_symbol, :atomic_number, :atomic_mass)
+            continue  # Already dealt with
+        elseif key == :charge
+            charges = ustrip.(u"e_au", system[:, :charge])
+        elseif key == :magnetic_moment
+            magmoms = system[:, :magnetic_moment]
+        else
+            @warn "Skipping atomic property $key, which is not supported in ASE."
+        end
+    end
+
+    # Map extra system properties
+    info = Dict{String, Any}()
+    for (k, v) in pairs(system)
+        if k in (:bounding_box, :boundary_conditions)
+            continue
+        elseif k in (:charge, )
+            info[string(k)] = ustrip(u"e_au", v)
+        elseif v isa Quantity || (v isa AbstractArray && eltype(v) <: Quantity)
+            @warn("Unitful quantities are not yet supported in convert_ase. " *
+                  "Ignoring key $k")
+        else
+            info[string(k)] = v
         end
     end
 

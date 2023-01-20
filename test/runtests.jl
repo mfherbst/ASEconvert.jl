@@ -39,8 +39,8 @@ include("common.jl")
             @test pyconvert(Float64, atom.charge) == ustrip(u"e_au", atprop.charge[i])
         end
         @test pyconvert(Int, ase_atoms.info["extra_data"])   == sysprop.extra_data
-        @test pyconvert(Int, ase_atoms.info["multiplicity"]) == sysprop.multiplicity
-        @test pyconvert(Float64, ase_atoms.info["charge"])   == ustrip(u"e_au", sysprop.charge)
+        @test pyconvert(Int, ase_atoms.info["multiplicity"]) == sysprop[:multiplicity]
+        @test pyconvert(Float64, ase_atoms.info["charge"])   == ustrip(u"e_au", sysprop[:charge])
     end
 
     @testset "Conversion to ASE (without velocities)" begin
