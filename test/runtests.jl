@@ -119,9 +119,7 @@ include("common.jl")
             file = joinpath(d, "output.xyz")
             ase.io.write(file, convert_ase(system))
             newsystem = ExtXYZ.Atoms(ExtXYZ.read_frame(file))
-            # TODO The ignore_atprop is needed because of missing features in AtomsBase.
-            test_approx_eq(system, newsystem;
-                           rtol=1e-6, ignore_atprop=[:magnetic_moment, :charge, :velocity])
+            test_approx_eq(system, newsystem; rtol=1e-6)
         end
     end
 end
