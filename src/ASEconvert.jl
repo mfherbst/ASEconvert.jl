@@ -37,7 +37,7 @@ function ase_to_system(S::Type{<:AbstractSystem}, ase_atoms::Py)
     ase_info   = pyconvert(Dict{String,Any}, ase_atoms.info)
 
     atoms = map(1:length(atnums)) do i
-        AtomsBase.Atom(atnums[i], positions[i, :]u"Å", velocities[i, :]u"Å/s";
+        AtomsBase.Atom(atnums[i], positions[i, :]u"Å", velocities[i, :]u"eV^0.5/u^0.5";
                        atomic_symbol=Symbol(atsyms[i]),
                        atomic_number=atnums[i],
                        atomic_mass=atmasses[i]u"u",
@@ -97,7 +97,7 @@ function convert_ase(system::AbstractSystem{D}) where {D}
     if !ismissing(velocity(system))
         velocities = zeros(n_atoms, 3)
         for at = 1:n_atoms
-            velocities[at, 1:D] = ustrip.(u"Å/s", velocity(system, at))
+            velocities[at, 1:D] = ustrip.(u"eV^0.5/u^0.5", velocity(system, at))
         end
     end
 

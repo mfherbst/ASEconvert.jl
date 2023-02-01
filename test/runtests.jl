@@ -30,7 +30,7 @@ include("common.jl")
             @test(pyconvert(Vector, atom.position)
                   ≈ ustrip.(u"Å", atprop.position[i]), atol=1e-14)
             @test(pyconvert(Vector, ase_atoms.get_velocities()[i - 1])
-                  ≈ ustrip.(u"Å/s", atprop.velocity[i]), atol=1e-14)
+                  ≈ ustrip.(u"eV^0.5/u^0.5", atprop.velocity[i]), atol=1e-14)
 
             @test pyconvert(String,  atom.symbol) == string(atprop.atomic_symbol[i])
             @test pyconvert(Int,     atom.number) == atprop.atomic_number[i]
@@ -88,7 +88,7 @@ include("common.jl")
         @test bounding_box(bulk_Fe) == a .* [[1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0]]
         @test atomic_symbol(bulk_Fe) == [:Fe, :Fe]
         @test position(bulk_Fe) == [[0.0, 0.0, 0.0], [1.435, 1.435, 1.435]]u"Å"
-        @test velocity(bulk_Fe) == [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]u"Å/s"
+        @test velocity(bulk_Fe) == [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]u"eV^0.5/u^0.5"
     end
 
     @testset "Writing / reading files using ASE" begin
