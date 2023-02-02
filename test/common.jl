@@ -18,7 +18,7 @@ function test_approx_eq(s::AbstractSystem, t::AbstractSystem;
     if !(:velocity in ignore_atprop)
         @test ismissing(velocity(s)) == ismissing(velocity(t))
         if !ismissing(velocity(s)) && !ismissing(velocity(t))
-            @test maximum(norm, velocity(s) - velocity(t)) < atol * u"eV^0.5/u^0.5"
+            @test maximum(norm, velocity(s) - velocity(t)) < atol * u"Å/s"
         end
     end
 
@@ -67,7 +67,7 @@ function make_test_system(D=3; drop_atprop=Symbol[], drop_sysprop=Symbol[],
     # Generate some random data to store in Atoms
     atprop = Dict{Symbol,Any}(
         :position        => [randn(3) for _ = 1:n_atoms]u"Å",
-        :velocity        => [randn(3) for _ = 1:n_atoms]u"eV^0.5/u^0.5",
+        :velocity        => [randn(3) for _ = 1:n_atoms]u"Å/s",
         :atomic_symbol   => [:H, :H, :C, :N, :He],
         :atomic_number   => [1, 1, 6, 7, 2],
         :charge          => [2, 1, 3.0, -1.0, 0.0]u"e_au",
