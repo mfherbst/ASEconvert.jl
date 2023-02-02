@@ -25,6 +25,9 @@ function __init__()
 end
 
 function ase_to_system(S::Type{<:AbstractSystem}, ase_atoms::Py)
+    # For ASE units, see https://wiki.fysik.dtu.dk/ase/ase/units.html
+    # In particular note that uTime = u"Å" * sqrt(u"u" / u"eV") and thus
+    # uVelocity = sqrt(u"u" / u"eV")
     box = [pyconvert(Vector, ase_atoms.cell[i])u"Å" for i = 0:2]
 
     atnums     = pyconvert(Vector, ase_atoms.get_atomic_numbers())
@@ -37,7 +40,7 @@ function ase_to_system(S::Type{<:AbstractSystem}, ase_atoms::Py)
     ase_info   = pyconvert(Dict{String,Any}, ase_atoms.info)
 
     atoms = map(1:length(atnums)) do i
-        AtomsBase.Atom(atnums[i], positions[i, :]u"Å", velocities[i, :]u"eV^0.5/u^0.5";
+        AtomsBase.Atom(atnums[i], positions[i, :]u"Å", velocities[i, :]*sqrt(u"eV"/u"u");
                        atomic_symbol=Symbol(atsyms[i]),
                        atomic_number=atnums[i],
                        atomic_mass=atmasses[i]u"u",
