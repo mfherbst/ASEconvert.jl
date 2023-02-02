@@ -9,23 +9,24 @@ Test whether two abstract systems are approximately the same. Certain atomic or 
 properties can be ignored during the comparison using the respective kwargs.
 """
 function test_approx_eq(s::AbstractSystem, t::AbstractSystem;
-                        atol=1e-14, ignore_atprop=Symbol[], ignore_sysprop=Symbol[])
-    # TODO Introduce an == / ≈ method in AbstractSystem for this purpose
+                        rtol=1e-12, ignore_atprop=Symbol[], ignore_sysprop=Symbol[])
+    rnorm(a, b) = (ustrip(norm(a)) < rtol ? norm(a - b) / 1unit(norm(a))
+                                          : norm(a - b) / norm(a))
 
-    @test maximum(norm, position(s)     - position(t))     < atol * u"Å"
-    @test maximum(norm, bounding_box(s) - bounding_box(t)) < atol * u"Å"
+    @test maximum(map(rnorm, position(s),     position(t)))     < rtol
+    @test maximum(map(rnorm, bounding_box(s), bounding_box(t))) < rtol
 
     if !(:velocity in ignore_atprop)
         @test ismissing(velocity(s)) == ismissing(velocity(t))
         if !ismissing(velocity(s)) && !ismissing(velocity(t))
-            @test maximum(norm, velocity(s) - velocity(t)) < atol * u"Å/s"
+            @test maximum(map(rnorm, velocity(s), velocity(t))) < rtol
         end
     end
 
     for method in (atomic_symbol, atomic_number, boundary_conditions)
         @test method(s) == method(t)
     end
-    @test maximum(abs, atomic_mass(s) - atomic_mass(t)) < atol * u"u"
+    @test maximum(map(rnorm, atomic_mass(s), atomic_mass(t))) < rtol
 
     extra_atomic_props = (:charge, :covalent_radius, :vdw_radius, :magnetic_moment)
     for prop in extra_atomic_props
@@ -37,7 +38,7 @@ function test_approx_eq(s::AbstractSystem, t::AbstractSystem;
                 prop_t = getproperty(at_t, prop)
 
                 if prop_s isa Quantity
-                    @test maximum(prop_s - prop_t) < atol * unit(prop_s)
+                    @test rnorm(prop_s, prop_t) < rtol
                 else
                     @test prop_s == prop_t
                 end
@@ -67,7 +68,8 @@ function make_test_system(D=3; drop_atprop=Symbol[], drop_sysprop=Symbol[],
     # Generate some random data to store in Atoms
     atprop = Dict{Symbol,Any}(
         :position        => [randn(3) for _ = 1:n_atoms]u"Å",
-        :velocity        => [randn(3) for _ = 1:n_atoms]u"Å/s",
+        :velocity        => [randn(3) for _ = 1:n_atoms] * 10^6*u"m/s",
+        #                   Note: reasonable velocity range in au
         :atomic_symbol   => [:H, :H, :C, :N, :He],
         :atomic_number   => [1, 1, 6, 7, 2],
         :charge          => [2, 1, 3.0, -1.0, 0.0]u"e_au",
