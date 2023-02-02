@@ -30,7 +30,7 @@ include("common.jl")
             @test(pyconvert(Vector, atom.position)
                   ≈ ustrip.(u"Å", atprop.position[i]), atol=1e-14)
             @test(pyconvert(Vector, ase_atoms.get_velocities()[i - 1])
-                  ≈ ustrip.(u"Å/s", atprop.velocity[i]), atol=1e-14)
+                  ≈ ustrip.(sqrt(u"eV"/u"u"), atprop.velocity[i]), atol=1e-12)
 
             @test pyconvert(String,  atom.symbol) == string(atprop.atomic_symbol[i])
             @test pyconvert(Int,     atom.number) == atprop.atomic_number[i]
@@ -88,7 +88,7 @@ include("common.jl")
         @test bounding_box(bulk_Fe) == a .* [[1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0]]
         @test atomic_symbol(bulk_Fe) == [:Fe, :Fe]
         @test position(bulk_Fe) == [[0.0, 0.0, 0.0], [1.435, 1.435, 1.435]]u"Å"
-        @test velocity(bulk_Fe) == [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]u"Å/s"
+        @test velocity(bulk_Fe) == [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]*sqrt(u"eV"/u"u")
     end
 
     @testset "Writing / reading files using ASE" begin
@@ -97,7 +97,7 @@ include("common.jl")
             file = joinpath(d, "output.xyz")
             ase.io.write(file, convert_ase(system))
             newsystem = pyconvert(FlexibleSystem, ase.io.read(file))
-            test_approx_eq(system, newsystem; atol=1e-6)
+            test_approx_eq(system, newsystem; rtol=1e-6)
         end
     end
 
@@ -121,7 +121,7 @@ include("common.jl")
             newsystem = ExtXYZ.Atoms(ExtXYZ.read_frame(file))
             # TODO The ignore_atprop is needed because of missing features in AtomsBase.
             test_approx_eq(system, newsystem;
-                           atol=1e-6, ignore_atprop=[:magnetic_moment, :charge, :velocity])
+                           rtol=1e-6, ignore_atprop=[:magnetic_moment, :charge, :velocity])
         end
     end
 end
