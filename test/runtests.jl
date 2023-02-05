@@ -39,8 +39,8 @@ include("common.jl")
             @test pyconvert(Float64, atom.charge) == ustrip(u"e_au", atprop.charge[i])
         end
         @test pyconvert(Int, ase_atoms.info["extra_data"])   == sysprop.extra_data
-        @test pyconvert(Int, ase_atoms.info["multiplicity"]) == sysprop.multiplicity
-        @test pyconvert(Float64, ase_atoms.info["charge"])   == ustrip(u"e_au", sysprop.charge)
+        @test pyconvert(Int, ase_atoms.info["multiplicity"]) == sysprop[:multiplicity]
+        @test pyconvert(Float64, ase_atoms.info["charge"])   == ustrip(u"e_au", sysprop[:charge])
     end
 
     @testset "Conversion to ASE (without velocities)" begin
@@ -112,16 +112,16 @@ include("common.jl")
         atomic_symbol = [:H, :H, :C, :N, :He]
         atomic_number = [1, 1, 6, 7, 2]
         atomic_mass   = [elements[at].atomic_mass for at in atomic_number]
-        extra_atprop = (; atomic_symbol, atomic_number, atomic_mass)
+        extra_atprop  = (; atomic_symbol, atomic_number, atomic_mass)
 
         system = make_ase_system(; extra_atprop, drop_atprop=[:velocity]).system
         mktempdir() do d
             file = joinpath(d, "output.xyz")
             ase.io.write(file, convert_ase(system))
             newsystem = ExtXYZ.Atoms(ExtXYZ.read_frame(file))
-            # TODO The ignore_atprop is needed because of missing features in AtomsBase.
-            test_approx_eq(system, newsystem;
-                           rtol=1e-6, ignore_atprop=[:magnetic_moment, :charge, :velocity])
+            test_approx_eq(system, newsystem; rtol=1e-6,
+                           ignore_atprop=[:initial_charges, :momenta, :masses,
+                                          :charge, :initial_magmoms, :magnetic_moment])
         end
     end
 end
