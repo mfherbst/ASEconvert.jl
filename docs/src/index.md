@@ -30,7 +30,7 @@ ase.build.surface(ase.build.bulk("Mg"), (1, 1, 0), 4, 0, periodic=true)
 
 ## Conversion from ASE to AtomsBase
 
-```@example mg
+```julia
 using ASEconvert
 using DFTK
 
@@ -39,7 +39,7 @@ mg_ase = ase.build.bulk("Mg")
 mg_atb = pyconvert(AbstractSystem, mg_ase)
 ```
 
-```@example mg
+```julia
 # Attach pseudopotentials, construct LDA DFT model and solve for DFT ground state
 system = attach_psp(mg_atb; Mg="hgh/lda/mg-q2")
 model  = model_LDA(system; temperature=1e-3, smearing=Smearing.MarzariVanderbilt())
