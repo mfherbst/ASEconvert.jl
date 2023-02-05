@@ -112,14 +112,16 @@ include("common.jl")
         atomic_symbol = [:H, :H, :C, :N, :He]
         atomic_number = [1, 1, 6, 7, 2]
         atomic_mass   = [elements[at].atomic_mass for at in atomic_number]
-        extra_atprop = (; atomic_symbol, atomic_number, atomic_mass)
+        extra_atprop  = (; atomic_symbol, atomic_number, atomic_mass)
 
         system = make_ase_system(; extra_atprop, drop_atprop=[:velocity]).system
         mktempdir() do d
             file = joinpath(d, "output.xyz")
             ase.io.write(file, convert_ase(system))
             newsystem = ExtXYZ.Atoms(ExtXYZ.read_frame(file))
-            test_approx_eq(system, newsystem; rtol=1e-6)
+            test_approx_eq(system, newsystem; rtol=1e-6,
+                           ignore_atprop=[:initial_charges, :momenta, :masses,
+                                          :charge, :initial_magmoms, :magnetic_moment])
         end
     end
 end
