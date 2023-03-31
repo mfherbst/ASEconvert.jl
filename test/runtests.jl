@@ -1,7 +1,9 @@
 using ASEconvert
 using AtomsBase
+using AtomsBaseTesting
 using Test
-include("common.jl")
+using Unitful
+using UnitfulAtomic
 
 
 @testset "ASEconvert.jl" begin
