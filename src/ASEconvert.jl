@@ -147,4 +147,7 @@ end
 # TODO Could have a convert_ase(Vector{Vector{Unitful}}) to make an ASE cell
 # TODO Could have a way to make an ASE calculator from an InteratomicPotential object
 
+include("atoms_calculators.jl")
+
+
 end
