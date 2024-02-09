@@ -27,3 +27,24 @@ atoms_ab = pyconvert(AbstractSystem, atoms_ase)
 newatoms_ase = convert_ase(atoms_ab)
 newatoms_ase.pop(4)
 ```
+
+### AtomsCalculators interface
+
+You can use ASE calculators in julia, by wrapping them to a `ASEcalculator` structure. Here is a brief example
+
+
+```julia
+using AtomsCalculators
+using ASEconvert
+using PythonCall
+
+fname = "path to eam potential file"
+EAM = pyimport("ase.calculators.eam")
+eam_cal = ASEcalculator(EAM.EAM(potential=fname))
+
+atoms_ase = ase.build.bulk("Ni") * pytuple((4, 3, 2))
+atoms_ab = pyconvert(AbstractSystem, atoms_ase)
+
+AtomsCalculators.potential_energy(atoms_ab, eam_cal)
+AtomsCalculators.forces(atoms_ab, eam_cal)
+```

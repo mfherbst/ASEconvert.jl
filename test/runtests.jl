@@ -133,10 +133,10 @@ using UnitfulAtomic
     @testset "ASE-AtomsCalculators calculator" begin
         sys_ase = ase.build.bulk("Ar") * pytuple((5, 5, 5))
         sys_ab = pyconvert(AbstractSystem, sys_ase)
-        jl = pyimport("ase.calculators.lj")
+        lj = pyimport("ase.calculators.lj")
         ε = 125.7u"K" * u"k" |> u"eV" |> ustrip
         σ = 3.345u"Å" |> ustrip
-        lj_cal = ASEcalculator(jl.LennardJones(epsilont=ε, sigma=σ))
+        lj_cal = ASEcalculator(lj.LennardJones(epsilon=ε, sigma=σ))
         test_potential_energy(sys_ab, lj_cal)
         test_forces(sys_ab, lj_cal)
         test_virial(sys_ab, lj_cal)
