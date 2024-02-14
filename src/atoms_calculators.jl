@@ -32,37 +32,40 @@ end
 
 
 AtomsCalculators.@generate_interface function AtomsCalculators.potential_energy(
-    ab_system,
-    ASEcalc::ASEcalculator;
+    system,
+    calc::ASEcalculator;
     kwargs...
 )
-    ase_system = convert_ase(ab_system)
-    e = ASEcalc.ase_python_calculator.get_potential_energy(ase_system)
+    ase_system = convert_ase(system)
+    e = calc.ase_python_calculator.get_potential_energy(ase_system)
     return pyconvert(Float64, e) * u"eV"
 end
 
 
 AtomsCalculators.@generate_interface function AtomsCalculators.forces(
-    ab_system,
-    ASEcalc::ASEcalculator;
+    system,
+    calc::ASEcalculator;
     kwargs...
 )
-    ase_system = convert_ase(ab_system)
-    f = ASEcalc.ase_python_calculator.get_forces(ase_system)
+    ase_system = convert_ase(system)
+    f = calc.ase_python_calculator.get_forces(ase_system)
+    # We need to convert from Python row major to Julia collumn major
+    # and from there to Vector with SVector{3,Float64} element.
+    # We'll do reallocation in the end to make sure that allignement is correct
     tmp =  pyconvert(Array, f)
-    tmp2 = reinterpret(AtomsCalculators.promote_force_type(ab_system,  ASEcalc), tmp') # |> Vector
-    # This is a total hack, but better this than have complications later
-    return vec(tmp2) |> Vector
+    FT = AtomsCalculators.promote_force_type(system, calc)
+    tmp2 = reinterpret(FT, tmp')
+    return Vector(vec(tmp2))
 end
 
 
 AtomsCalculators.@generate_interface function AtomsCalculators.virial(
-    ab_system,
-    ASEcalc::ASEcalculator;
+    system,
+    calc::ASEcalculator;
     kwargs...
 )
-    ase_system = convert_ase(ab_system)
-    tmp = ASEcalc.ase_python_calculator.get_stress(ase_system)
+    ase_system = convert_ase(system)
+    tmp = calc.ase_python_calculator.get_stress(ase_system)
     cons = ase.constraints
     stress = cons.voigt_6_to_full_3x3_stress(tmp) * ( - ase_system.get_volume() )
     return pyconvert(Array, stress) * u"eV"
