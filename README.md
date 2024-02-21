@@ -40,7 +40,7 @@ using PythonCall
 
 potential = "path to eam potential file"
 EAM = pyimport("ase.calculators.eam")
-eam_cal = ASEcalculator(EAM.EAM(;potential=potential))
+eam_cal = ASEcalculator(EAM.EAM(potential))
 
 atoms_ase = ase.build.bulk("Ni") * pytuple((4, 3, 2))
 atoms_ab = pyconvert(AbstractSystem, atoms_ase)

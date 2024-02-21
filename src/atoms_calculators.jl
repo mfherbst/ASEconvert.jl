@@ -1,9 +1,8 @@
 import AtomsCalculators
 
-export ASEcalculator
 
 """
-    ASEcalculator{T}
+    ASEcalculator
 
 This structure wraps python ASE calculator to AtomsCalculators
 interface compatible structure.
@@ -14,9 +13,9 @@ using AtomsCalculators
 using ASEconvert
 using PythonCall
 
-fname = "path to eam potential file"
+potential = "path to eam potential file"
 EAM = pyimport("ase.calculators.eam")
-eam_cal = ASEconvert.ASEcalculator(EAM.EAM(potential=fname))
+eam_cal = ASEconvert.ASEcalculator(EAM.EAM(potential))
 
 atoms_ase = ase.build.bulk("Ni") * pytuple((4, 3, 2))
 atoms_ab = pyconvert(AbstractSystem, atoms_ase)
@@ -26,8 +25,8 @@ AtomsCalculators.forces(atoms_ab, eam_cal)
 ```
 
 """
-mutable struct ASEcalculator{T}
-    ase_python_calculator::T
+mutable struct ASEcalculator
+    ase_python_calculator::PythonCall.Py
 end
 
 

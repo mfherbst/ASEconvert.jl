@@ -1,7 +1,5 @@
 import PeriodicTable
 
-export convert_ase
-
 
 # For ASE units, see https://wiki.fysik.dtu.dk/ase/ase/units.html
 # In particular note that uTime = u"Å" * sqrt(u"u" / u"eV") and thus
