@@ -1,6 +1,9 @@
 using ASEconvert
 using AtomsBase
 using AtomsBaseTesting
+using AtomsCalculators
+using AtomsCalculators.AtomsCalculatorsTesting
+using PythonCall
 using Test
 using Unitful
 using UnitfulAtomic
@@ -125,5 +128,17 @@ using UnitfulAtomic
                            ignore_atprop=[:initial_charges, :momenta, :masses,
                                           :charge, :initial_magmoms, :magnetic_moment])
         end
+    end
+
+    @testset "ASE-AtomsCalculators calculator" begin
+        sys_ase = ase.build.bulk("Ar") * pytuple((5, 5, 5))
+        sys_ab = pyconvert(AbstractSystem, sys_ase)
+        lj = pyimport("ase.calculators.lj")
+        ε = ustrip(u"eV", 125.7u"K" * u"k")
+        σ = ustrip(3.345u"Å")
+        lj_cal = ASEcalculator(lj.LennardJones(;epsilon=ε, sigma=σ))
+        test_potential_energy(sys_ab, lj_cal)
+        test_forces(sys_ab, lj_cal)
+        test_virial(sys_ab, lj_cal)
     end
 end
