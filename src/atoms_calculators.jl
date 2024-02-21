@@ -37,7 +37,7 @@ AtomsCalculators.@generate_interface function AtomsCalculators.potential_energy(
 )
     ase_system = convert_ase(system)
     e = calc.ase_python_calculator.get_potential_energy(ase_system)
-    return pyconvert(Float64, e) * u"eV"
+    pyconvert(Float64, e) * u"eV"
 end
 
 
@@ -54,7 +54,7 @@ AtomsCalculators.@generate_interface function AtomsCalculators.forces(
     tmp =  pyconvert(Array, f)
     FT = AtomsCalculators.promote_force_type(system, calc)
     tmp2 = reinterpret(FT, tmp')
-    return Vector(vec(tmp2))
+    Vector(vec(tmp2))
 end
 
 
@@ -67,5 +67,5 @@ AtomsCalculators.@generate_interface function AtomsCalculators.virial(
     tmp = calc.ase_python_calculator.get_stress(ase_system)
     cons = ase.constraints
     stress = cons.voigt_6_to_full_3x3_stress(tmp) * ( - ase_system.get_volume() )
-    return pyconvert(Array, stress) * u"eV"
+    pyconvert(Array, stress) * u"eV"
 end
