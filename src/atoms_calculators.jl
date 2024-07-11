@@ -1,4 +1,5 @@
 import AtomsCalculators
+import AtomsCalculators: @generate_interface, calculate, Energy, Forces, Virial
 
 
 """
@@ -26,28 +27,18 @@ AtomsCalculators.forces(atoms_ab, eam_cal)
 
 """
 mutable struct ASEcalculator
-    ase_python_calculator::PythonCall.Py
+    calculator::PythonCall.Py
 end
 
-
-AtomsCalculators.@generate_interface function AtomsCalculators.potential_energy(
-    system,
-    calc::ASEcalculator;
-    kwargs...
-)
-    ase_system = convert_ase(system)
-    e = calc.ase_python_calculator.get_potential_energy(ase_system)
+@generate_interface function calculate(::Energy, system, calc::ASEcalculator,
+                                       ps=nothing, st=nothing; kwargs...)
+    e = calc.calculator.get_potential_energy(convert_ase(system))
     pyconvert(Float64, e) * u"eV"
 end
 
-
-AtomsCalculators.@generate_interface function AtomsCalculators.forces(
-    system,
-    calc::ASEcalculator;
-    kwargs...
-)
-    ase_system = convert_ase(system)
-    f = calc.ase_python_calculator.get_forces(ase_system)
+@generate_interface function calculate(::Forces, system, calc::ASEcalculator,
+                                       ps=nothing, st=nothing; kwargs...)
+    f = calc.calculator.get_forces(convert_ase(system))
     # We need to convert from Python row major to Julia collumn major
     # and from there to Vector with SVector{3,Float64} element.
     # We'll do reallocation in the end to make sure that allignement is correct
@@ -57,15 +48,11 @@ AtomsCalculators.@generate_interface function AtomsCalculators.forces(
     Vector(vec(tmp2))
 end
 
-
-AtomsCalculators.@generate_interface function AtomsCalculators.virial(
-    system,
-    calc::ASEcalculator;
-    kwargs...
-)
+@generate_interface function calculate(::Virial, system, calc::ASEcalculator,
+                                       ps=nothing, st=nothing; kwargs...)
     ase_system = convert_ase(system)
-    tmp = calc.ase_python_calculator.get_stress(ase_system)
-    cons = ase.constraints
-    stress = cons.voigt_6_to_full_3x3_stress(tmp) * ( - ase_system.get_volume() )
+    tmp = calc.calculator.get_stress(ase_system)
+    Ω = ase_system.get_volume()
+    stress = -Ω * ase.constraints.voigt_6_to_full_3x3_stress(tmp)
     pyconvert(Array, stress) * u"eV"
 end

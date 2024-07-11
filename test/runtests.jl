@@ -2,7 +2,7 @@ using ASEconvert
 using AtomsBase
 using AtomsBaseTesting
 using AtomsCalculators
-using AtomsCalculators.AtomsCalculatorsTesting
+using AtomsCalculators.Testing
 using PythonCall
 using Test
 using Unitful
@@ -137,8 +137,6 @@ using UnitfulAtomic
         ε = ustrip(u"eV", 125.7u"K" * u"k")
         σ = ustrip(3.345u"Å")
         lj_cal = ASEcalculator(lj.LennardJones(;epsilon=ε, sigma=σ))
-        test_potential_energy(sys_ab, lj_cal)
-        test_forces(sys_ab, lj_cal)
-        test_virial(sys_ab, lj_cal)
+        test_energy_forces_virial(sys_ab, lj_cal; rtol=1e-8)
     end
 end
