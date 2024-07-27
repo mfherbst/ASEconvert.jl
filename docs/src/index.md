@@ -99,5 +99,5 @@ Next we use the `energy_forces` function from `AtomsCalculators`:
 
 ```@example calculators
 using AtomsCalculators
-AtomsCalculators.energy_forces(system, calc_emt)
+AtomsCalculators.energy_forces(system, calculator)
 ```
