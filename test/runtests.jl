@@ -2,7 +2,7 @@ using ASEconvert
 using AtomsBase
 using AtomsBaseTesting
 using AtomsCalculators
-using AtomsCalculators.AtomsCalculatorsTesting
+using AtomsCalculators.Testing
 using PythonCall
 using Test
 using Unitful
@@ -130,15 +130,21 @@ using UnitfulAtomic
         end
     end
 
-    @testset "ASE-AtomsCalculators calculator" begin
-        sys_ase = ase.build.bulk("Ar") * pytuple((5, 5, 5))
-        sys_ab = pyconvert(AbstractSystem, sys_ase)
-        lj = pyimport("ase.calculators.lj")
+    @testset "Test ASEcalculator" begin
+        # Setup LJ calculator in ASE
+        ase_lj = pyimport("ase.calculators.lj")
         ε = ustrip(u"eV", 125.7u"K" * u"k")
         σ = ustrip(3.345u"Å")
-        lj_cal = ASEcalculator(lj.LennardJones(;epsilon=ε, sigma=σ))
-        test_potential_energy(sys_ab, lj_cal)
-        test_forces(sys_ab, lj_cal)
-        test_virial(sys_ab, lj_cal)
+        calc_lj = ASEcalculator(ase_lj.LennardJones(; epsilon=ε, sigma=σ))
+
+        # Build Argon supercell
+        ase_system = ase.build.bulk("Ar") * pytuple((5, 5, 5))
+        system = pyconvert(AbstractSystem, ase_system)
+
+        # Check we have not made a stupid coding mistake
+        @test -0.39120116 ≈ austrip(AtomsCalculators.potential_energy(system, calc_lj))
+
+        # Check the full AtomsCalculator test suite passes
+        test_energy_forces_virial(system, calc_lj; rtol=1e-8)
     end
 end

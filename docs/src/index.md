@@ -4,11 +4,14 @@ CurrentModule = ASEconvert
 
 # ASEconvert
 
-Light-weight module to install ASE
-and provide routines for converting between the Atoms datastructure
-from [ASE](https://wiki.fysik.dtu.dk/ase/index.html)
-and atomistic data provided in
-the [AtomsBase](https://github.com/JuliaMolSim/AtomsBase.jl) ecosystem.
+Light-weight module to install the
+[atomistic simulation environment (ASE)](https://wiki.fysik.dtu.dk/ase/index.html)
+and provide routines for cross-converting between ASE datastructures
+and the respective ones of the [JuliaMolSim](https://juliamolsim.org) ecosystem.
+E.g. it allows to convert between the ASE Atoms and exposing them using an
+[AtomsBase](https://github.com/JuliaMolSim/AtomsBase.jl) compatible interface
+or it allows to employ calculators from ASE
+as [AtomsCalculators](https://github.com/JuliaMolSim/AtomsCalculators.jl).
 
 ## Automatic ASE installation
 Using the mechanism provided by [PythonCall](https://github.com/cjdoris/PythonCall.jl)
@@ -32,14 +35,15 @@ ase.build.surface(ase.build.bulk("Mg"), (1, 1, 0), 4, 0, periodic=true)
 
 ```@example dftk
 using ASEconvert
-using DFTK
 
 # Construct bulk magnesium using ASE and convert to atomsbase
 mg_ase = ase.build.bulk("Mg")
 mg_atb = pyconvert(AbstractSystem, mg_ase)
 ```
 
-```@example dftk
+```julia
+using DFTK
+
 # Attach pseudopotentials, construct LDA DFT model and solve for DFT ground state
 system = attach_psp(mg_atb; Mg="hgh/lda/mg-q2")
 model  = model_LDA(system; temperature=1e-3, smearing=Smearing.MarzariVanderbilt())
@@ -68,4 +72,32 @@ and write it again as an ASE json file
 
 ```@example extxyz
 ase.io.write("out.json", convert_ase(system));
+```
+
+## Employing ASE calculators in Julia
+
+```@example calculators
+using PythonCall
+using ASEconvert
+
+ase_emt = pyimport("ase.calculators.emt")
+calculator = ASEcalculator(ase_emt.EMT())
+```
+The above codeblock employs [PythonCall](https://github.com/cjdoris/PythonCall.jl)
+to setup an [EMT calculator](https://wiki.fysik.dtu.dk/ase/ase/calculators/emt.html)
+in ASE. Using the [`ASEcalculator`](@ref) wrapper this calculator is wrapped
+and now exposes a standard [AtomsCalculators](https://github.com/JuliaMolSim/AtomsCalculators.jl)-compatible
+interface. For example one can use it to compute energy and forces of a copper supercell.
+
+First we make the supercell:
+```@example calculators
+using AtomsBuilder
+system = bulk(:Cu) * (4, 3, 2)  # Make copper supercell
+```
+
+Next we use the `energy_forces` function from `AtomsCalculators`:
+
+```@example calculators
+using AtomsCalculators
+AtomsCalculators.energy_forces(system, calculator)
 ```

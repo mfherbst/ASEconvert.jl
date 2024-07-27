@@ -1,4 +1,5 @@
 import AtomsCalculators
+import AtomsCalculators: @generate_interface, calculate, Energy, Forces, Virial
 
 
 """
@@ -9,63 +10,54 @@ interface compatible structure.
 
 # Example
 ```julia
-using AtomsCalculators
 using ASEconvert
+using AtomsBuilder
+using AtomsCalculators
 using PythonCall
 
-potential = "path to eam potential file"
-EAM = pyimport("ase.calculators.eam")
-eam_cal = ASEconvert.ASEcalculator(EAM.EAM(potential))
+ase_emt = pyimport("ase.calculators.emt")
+calc_emt = ASEcalculator(ase_emt.EMT())
 
-atoms_ase = ase.build.bulk("Ni") * pytuple((4, 3, 2))
-atoms_ab = pyconvert(AbstractSystem, atoms_ase)
-
-AtomsCalculators.potential_energy(atoms_ab, eam_cal)
-AtomsCalculators.forces(atoms_ab, eam_cal)
+system = bulk(:Cu) * (4, 3, 2)
+AtomsCalculators.potential_energy(system, calc_emt)
+AtomsCalculators.forces(system, calc_emt)
+AtomsCalculators.virial(system, calc_emt)
 ```
-
 """
 mutable struct ASEcalculator
-    ase_python_calculator::PythonCall.Py
+    calculator::PythonCall.Py
 end
 
+# TODO The ASE calculator could change in-place, so it therefore itself
+#      is basically the state. The state handling should overall therefore
+#      be done more thoroughly here.
 
-AtomsCalculators.@generate_interface function AtomsCalculators.potential_energy(
-    system,
-    calc::ASEcalculator;
-    kwargs...
-)
-    ase_system = convert_ase(system)
-    e = calc.ase_python_calculator.get_potential_energy(ase_system)
-    pyconvert(Float64, e) * u"eV"
+AtomsCalculators.energy_unit(::ASEcalculator) = u"eV"
+AtomsCalculators.length_unit(::ASEcalculator) = u"Å"
+
+@generate_interface function AtomsCalculators.calculate(::AtomsCalculators.Energy,
+        system, calc::ASEcalculator, parameters=nothing, state=nothing; kwargs...)
+    edata = calc.calculator.get_potential_energy(convert_ase(system))
+    (; energy=pyconvert(Float64, edata)u"eV", state)
 end
 
-
-AtomsCalculators.@generate_interface function AtomsCalculators.forces(
-    system,
-    calc::ASEcalculator;
-    kwargs...
-)
-    ase_system = convert_ase(system)
-    f = calc.ase_python_calculator.get_forces(ase_system)
-    # We need to convert from Python row major to Julia collumn major
+@generate_interface function AtomsCalculators.calculate(::AtomsCalculators.Forces,
+        system, calc::ASEcalculator, parameters=nothing, state=nothing; kwargs...)
+    fdata = calc.calculator.get_forces(convert_ase(system))
+    # We need to convert from Python row major to Julia column major
     # and from there to Vector with SVector{3,Float64} element.
-    # We'll do reallocation in the end to make sure that allignement is correct
-    tmp =  pyconvert(Array, f)
-    FT = AtomsCalculators.promote_force_type(system, calc)
+    # We do reallocation in the end to ensure we have the correct memory allignement
+    tmp  = pyconvert(Array, fdata)
+    FT   = AtomsCalculators.promote_force_type(system, calc)
     tmp2 = reinterpret(FT, tmp')
-    Vector(vec(tmp2))
+    (; forces=Vector(vec(tmp2)), state)
 end
 
-
-AtomsCalculators.@generate_interface function AtomsCalculators.virial(
-    system,
-    calc::ASEcalculator;
-    kwargs...
-)
+@generate_interface function AtomsCalculators.calculate(::AtomsCalculators.Virial,
+        system, calc::ASEcalculator, parameters=nothing, state=nothing; kwargs...)
     ase_system = convert_ase(system)
-    tmp = calc.ase_python_calculator.get_stress(ase_system)
-    cons = ase.constraints
-    stress = cons.voigt_6_to_full_3x3_stress(tmp) * ( - ase_system.get_volume() )
-    pyconvert(Array, stress) * u"eV"
+    sdata = calc.calculator.get_stress(ase_system)
+    Ω = ase_system.get_volume()
+    stress = -Ω * ase.constraints.voigt_6_to_full_3x3_stress(sdata)
+    (; virial=pyconvert(Array, stress) * u"eV", state)
 end
