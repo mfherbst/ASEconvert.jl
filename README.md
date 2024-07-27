@@ -30,21 +30,25 @@ newatoms_ase.pop(4)
 
 ### AtomsCalculators interface
 
-You can use ASE calculators in julia, by wrapping them to a `ASEcalculator` structure. Here is a brief example
-
+You can use ASE calculators in julia, by wrapping them to a `ASEcalculator` structure.
+Here is a brief example:
 
 ```julia
 using AtomsCalculators
+using AtomsBuilder
 using ASEconvert
 using PythonCall
 
+# Setup calculator in ASE
 potential = "path to eam potential file"
-EAM = pyimport("ase.calculators.eam")
-eam_cal = ASEcalculator(EAM.EAM(potential))
+ase_calc = pyimport("ase.calculators.eam").EAM(potential)
 
-atoms_ase = ase.build.bulk("Ni") * pytuple((4, 3, 2))
-atoms_ab = pyconvert(AbstractSystem, atoms_ase)
+# Convert into AtomsCalculator-compatible calculator
+calc = ASEcalculator(ase_calc)
 
-AtomsCalculators.potential_energy(atoms_ab, eam_cal)
-AtomsCalculators.forces(atoms_ab, eam_cal)
+# Use it to compute a Nickel supercell
+system = bulk(:Ni) * (4, 3, 2)
+AtomsCalculators.potential_energy(system, calc)
+AtomsCalculators.forces(system, calc)
+AtomsCalculators.virial(system, calc)
 ```
