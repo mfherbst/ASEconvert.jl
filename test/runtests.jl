@@ -17,9 +17,8 @@ using UnitfulAtomic
     end
 
     # TODO Test reduced dimension
-
     @testset "Conversion to ASE (3D, with velocity)" begin
-        system, atoms, atprop, sysprop, box, bcs = make_test_system()
+        system, atoms, atprop, sysprop, box, pbcs = make_test_system()
         ase_atoms = @test_logs((:warn, r"Skipping atomic property vdw_radius"),
                                (:warn, r"Skipping atomic property covalent_radius"),
                                match_mode=:any, convert_ase(system))
@@ -28,7 +27,7 @@ using UnitfulAtomic
         for i = 1:D
             @test pyconvert(Vector, ase_atoms.cell[i - 1]) ≈ ustrip.(u"Å", box[i]) atol=1e-14
         end
-        @assert bcs == [Periodic(), Periodic(), DirichletZero()]
+        @assert pbcs == (true, true, false)
         @test pyconvert(Vector, ase_atoms.pbc) == [true, true, false]
 
         for (i, atom) in enumerate(ase_atoms)
@@ -37,9 +36,9 @@ using UnitfulAtomic
             @test(pyconvert(Vector, ase_atoms.get_velocities()[i - 1])
                   ≈ ustrip.(sqrt(u"eV"/u"u"), atprop.velocity[i]), atol=1e-12)
 
-            @test pyconvert(String,  atom.symbol) == string(atprop.atomic_symbol[i])
-            @test pyconvert(Int,     atom.number) == atprop.atomic_number[i]
-            @test pyconvert(Float64, atom.mass)   == ustrip(u"u", atprop.atomic_mass[i])
+            @test pyconvert(String,  atom.symbol) == string(atomic_symbol(atprop.species[i]))
+            @test pyconvert(Int,     atom.number) == atomic_number(atprop.species[i])
+            @test pyconvert(Float64, atom.mass)   == ustrip(u"u", atprop.mass[i])
             @test pyconvert(Float64, atom.magmom) == atprop.magnetic_moment[i]
             @test pyconvert(Float64, atom.charge) == ustrip(u"e_au", atprop.charge[i])
         end
