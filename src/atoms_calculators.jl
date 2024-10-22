@@ -46,7 +46,7 @@ end
     fdata = calc.calculator.get_forces(convert_ase(system))
     # We need to convert from Python row major to Julia column major
     # and from there to Vector with SVector{3,Float64} element.
-    # We do reallocation in the end to ensure we have the correct memory allignement
+    # We do reallocation in the end to ensure we have the correct memory alignment
     tmp  = pyconvert(Array, fdata)
     FT   = AtomsCalculators.promote_force_type(system, calc)
     tmp2 = reinterpret(FT, tmp')

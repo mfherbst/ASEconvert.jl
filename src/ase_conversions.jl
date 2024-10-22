@@ -1,5 +1,17 @@
 import PeriodicTable
 
+# Some general notes:
+#    - ASE has a cell object, but does neither make the distinction
+#      between isolated and periodic cells nor do cells store
+#      the boundary conditions like we do in AtomsBase. So we will
+#      *not* support conversion to and from cells for now.
+#    - Isotope handling is not yet fully implemented in AtomsBase,
+#      so this will be ignored in this interface.
+#    - Atomic numbers and atomic symbols cannot differ in ASE,
+#      so this is not supported in the interface.
+
+# TODO One could maybe also implement this as a wrapper, where data
+#      is not copied, but updated in-place in the python object.
 
 # For ASE units, see https://wiki.fysik.dtu.dk/ase/ase/units.html
 # In particular note that uTime = u"Å" * sqrt(u"u" / u"eV") and thus
@@ -7,10 +19,20 @@ const uVelocity = sqrt(u"eV" / u"u")
 
 
 function ase_to_system(S::Type{<:AbstractSystem}, ase_atoms::Py)
-    box = [pyconvert(Vector, ase_atoms.cell[i])u"Å" for i = 0:2]
+    cell_vectors = [pyconvert(Vector, ase_atoms.cell[i])u"Å" for i = 0:2]
+    periodicity  = pyconvert(Vector, ase_atoms.pbc)
+
+    # Convention in ASE isolated cells have zero (undefined) cell vectors
+    if all(iszero, cell_vectors)
+        if any(periodicity)
+            @warn "Ignoring ASE pbc settings which ASE cell vectors are zero (undefined)"
+        end
+        cϵll = IsolatedCell(3, typeof(1.0u"Å"))
+    else
+        cϵll = PeriodicCell(; cell_vectors, periodicity)
+    end
 
     atnums     = pyconvert(Vector, ase_atoms.get_atomic_numbers())
-    atsyms     = pyconvert(Vector, ase_atoms.symbols)
     atmasses   = pyconvert(Vector, ase_atoms.get_masses())
     positions  = pyconvert(Matrix, ase_atoms.get_positions())
     velocities = pyconvert(Matrix, ase_atoms.get_velocities())
@@ -18,13 +40,14 @@ function ase_to_system(S::Type{<:AbstractSystem}, ase_atoms::Py)
     charges    = pyconvert(Vector, ase_atoms.get_initial_charges())
     ase_info   = pyconvert(Dict{String,Any}, ase_atoms.info)
 
-    atoms = map(1:length(atnums)) do i
-        AtomsBase.Atom(atnums[i], positions[i, :]u"Å", velocities[i, :] * uVelocity;
-                       atomic_symbol=Symbol(atsyms[i]),
-                       atomic_number=atnums[i],
-                       atomic_mass=atmasses[i]u"u",
-                       magnetic_moment=magmoms[i],
-                       charge=charges[i]u"e_au")
+    particles = map(1:length(atnums)) do i
+        Atom(atnums[i],
+             positions[i, :]u"Å",
+             velocities[i, :] * uVelocity;
+             species=ChemicalSpecies(atnums[i]),
+             mass=atmasses[i]u"u",
+             magnetic_moment=magmoms[i],
+             charge=charges[i]u"e_au")
     end
 
     # Parse extra data in info struct
@@ -37,8 +60,7 @@ function ase_to_system(S::Type{<:AbstractSystem}, ase_atoms::Py)
         end
     end
 
-    bcs = [p ? Periodic() : DirichletZero() for p in pyconvert(Vector, ase_atoms.pbc)]
-    PythonCall.pyconvert_return(atomic_system(atoms, box, bcs; info...))
+    PythonCall.pyconvert_return(FlexibleSystem(particles, cϵll; info...))
 end
 
 """
@@ -50,25 +72,27 @@ may be added as additional methods in the future.
 """
 function convert_ase(system::AbstractSystem{D}) where {D}
     D != 3 && @warn "1D and 2D systems not yet fully supported."
-
     n_atoms = length(system)
-    pbc     = map(isequal(Periodic()), boundary_conditions(system))
-    numbers = atomic_number(system)
-    masses  = ustrip.(u"u", atomic_mass(system))
 
-    symbols_match = [
-        PeriodicTable.elements[atnum].symbol == string(atomic_symbol(system, i))
-        for (i, atnum) in enumerate(numbers)
-    ]
-    if !all(symbols_match)
-        @warn("Mismatch between atomic numbers and atomic symbols, which is not " *
-              "supported in ASE. Atomic numbers take preference.")
+    ase_cell = zeros(3, 3)
+    if cell(system) isa IsolatedCell
+        pbc = [false, false, false]
+    else
+        pbc = periodicity(system)
+        for (i, v) in enumerate(bounding_box(system))
+            ase_cell[i, 1:D] = ustrip.(u"Å", v)
+        end
     end
 
-    cell = zeros(3, 3)
-    for (i, v) in enumerate(bounding_box(system))
-        cell[i, 1:D] = ustrip.(u"Å", v)
+    for at = 1:n_atoms
+        spec = species(system, at)
+        if spec.nneut != AtomsBase._nneut_default(atomic_number(spec))
+            @warn("Atom $at has a non-default neutron count, which is not yet supported.")
+        end
     end
+
+    numbers = [atomic_number(species(system, at)) for at = 1:n_atoms]
+    masses  = [ustrip(u"u", mass(system, at))     for at = 1:n_atoms]
 
     positions = zeros(n_atoms, 3)
     for at = 1:n_atoms
@@ -76,7 +100,7 @@ function convert_ase(system::AbstractSystem{D}) where {D}
     end
 
     velocities = nothing
-    if !ismissing(velocity(system))
+    if n_atoms > 0 && !ismissing(velocity(system, 1))
         velocities = zeros(n_atoms, 3)
         for at = 1:n_atoms
             velocities[at, 1:D] = ustrip.(uVelocity, velocity(system, at))
@@ -90,7 +114,7 @@ function convert_ase(system::AbstractSystem{D}) where {D}
     charges = nothing
     magmoms = nothing
     for key in atomkeys(system)
-        if key in (:position, :velocity, :atomic_symbol, :atomic_number, :atomic_mass)
+        if key in (:position, :velocity, :species, :mass)
             continue  # Already dealt with
         elseif key == :charge
             charges = ustrip.(u"e_au", system[:, :charge])
@@ -104,7 +128,7 @@ function convert_ase(system::AbstractSystem{D}) where {D}
     # Map extra system properties
     info = Dict{String, Any}()
     for (k, v) in pairs(system)
-        if k in (:bounding_box, :boundary_conditions)
+        if k in (:bounding_box, :periodicity)
             continue
         elseif k in (:charge, )
             info[string(k)] = ustrip(u"e_au", v)
@@ -117,9 +141,7 @@ function convert_ase(system::AbstractSystem{D}) where {D}
     end
 
     ase.Atoms(; positions, numbers, masses, magmoms, charges,
-              cell, pbc, velocities, info)
+              cell=ase_cell, pbc, velocities, info)
 end
 
 # TODO Could have a convert_ase(Vector{AbstractSystem}) to make an ASE trajectory
-# TODO Could have a convert_ase(Vector{Vector{Unitful}}) to make an ASE cell
-# TODO Could have a way to make an ASE calculator from an InteratomicPotential object
