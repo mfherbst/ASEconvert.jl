@@ -18,14 +18,14 @@ using UnitfulAtomic
 
     # TODO Test reduced dimension
     @testset "Conversion to ASE (3D, with velocity)" begin
-        system, atoms, atprop, sysprop, box, pbcs = make_test_system()
+        (; system, cell_vectors, periodicity, atprop, sysprop) = make_test_system()
         ase_atoms = @test_logs((:warn, r"Skipping atomic property vdw_radius"),
                                (:warn, r"Skipping atomic property covalent_radius"),
                                match_mode=:any, convert_ase(system))
 
         D = 3
         for i = 1:D
-            @test pyconvert(Vector, ase_atoms.cell[i - 1]) ≈ ustrip.(u"Å", box[i]) atol=1e-14
+            @test pyconvert(Vector, ase_atoms.cell[i - 1]) ≈ ustrip.(u"Å", cell_vectors[i]) atol=1e-14
         end
         @assert pbcs == (true, true, false)
         @test pyconvert(Vector, ase_atoms.pbc) == [true, true, false]
