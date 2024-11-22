@@ -79,7 +79,7 @@ function convert_ase(system::AbstractSystem{D}) where {D}
         pbc = [false, false, false]
     else
         pbc = periodicity(system)
-        for (i, v) in enumerate(bounding_box(system))
+        for (i, v) in enumerate(cell_vectors(system))
             ase_cell[i, 1:D] = ustrip.(u"Å", v)
         end
     end
@@ -128,7 +128,7 @@ function convert_ase(system::AbstractSystem{D}) where {D}
     # Map extra system properties
     info = Dict{String, Any}()
     for (k, v) in pairs(system)
-        if k in (:bounding_box, :periodicity)
+        if k in (:cell_vectors, :periodicity)
             continue
         elseif k in (:charge, )
             info[string(k)] = ustrip(u"e_au", v)

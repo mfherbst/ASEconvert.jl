@@ -54,18 +54,16 @@ scfres.energies
 ```
 
 ## Conversion from AtomsBase to ASE
-
 ```@example extxyz
 using ASEconvert
-using AtomsIO
+using ExtXYZ
 
 # Read an extxyz file using AtomsIO.jl.
-system = load_system("Mn3Si.extxyz")
+system = ExtXYZ.Atoms(ExtXYZ.read_frame("Mn3Si.extxyz"))
 ```
-
-This example uses [AtomsIO](https://github.com/mfherbst/AtomsIO.jl)
+This example uses [ExtXYZ](https://github.com/libAtoms/ExtXYZ.jl)
 to read the extended XYZ file file `Mn3Si.extxyz`. The data is returned
-as a subtype of `AtomsBase.AbstractSystem`
+as a subtype of [`AtomsBase.AbstractSystem`](https://juliamolsim.github.io/AtomsBase.jl/)
 (in this case an `ExtXYZ.Atoms` from [ExtXYZ](https://github.com/libAtoms/ExtXYZ.jl)).
 We can thus directly convert this system to an `ase.Atoms` using [`convert_ase`](@ref)
 and write it again as an ASE json file
@@ -73,6 +71,9 @@ and write it again as an ASE json file
 ```@example extxyz
 ase.io.write("out.json", convert_ase(system));
 ```
+
+For a more convenient and feature-rich way of reading and writing atomic
+structures in julia see [AtomsIO](https://github.com/mfherbst/AtomIO.jl).
 
 ## Employing ASE calculators in Julia
 
