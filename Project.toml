@@ -21,7 +21,7 @@ PeriodicTable = "1"
 PythonCall = "0.9"
 Unitful = "1"
 UnitfulAtomic = "1"
-julia = "1.6"
+julia = "1.9"
 
 [extras]
 AtomsBaseTesting = "ed7c10db-df7e-4efa-a7be-4f4190f7f227"
