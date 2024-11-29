@@ -86,8 +86,9 @@ function convert_ase(system::AbstractSystem{D}) where {D}
 
     for at = 1:n_atoms
         spec = species(system, at)
-        if spec.nneut != AtomsBase._nneut_default(atomic_number(spec))
-            @warn("Atom $at has a non-default neutron count, which is not yet supported.")
+        if spec.n_neutrons ≥ 0
+            @warn("Atom $at has a non-default neutron count. This information " *
+                  "is dropped when converting to ASE.")
         end
     end
 
