@@ -43,10 +43,12 @@ mg_atb = pyconvert(AbstractSystem, mg_ase)
 
 ```julia
 using DFTK
+using PseudoPotentialData
 
 # Attach pseudopotentials, construct LDA DFT model and solve for DFT ground state
-system = attach_psp(mg_atb; Mg="hgh/lda/mg-q2")
-model  = model_LDA(system; temperature=1e-3, smearing=Smearing.MarzariVanderbilt())
+pseudopotentials = PseudoFamily("dojo.nc.sr.lda.v0_4_1.oncvpsp3.standard.upf")
+model  = model_DFT(mg_atb; temperature=1e-3, smearing=Smearing.MarzariVanderbilt(),
+                   pseudopotentials, functionals=LDA())
 basis  = PlaneWaveBasis(model; Ecut=20, kgrid=(4, 4, 4))
 scfres = self_consistent_field(basis)
 
