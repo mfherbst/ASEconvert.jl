@@ -17,18 +17,17 @@ using UnitfulAtomic
     end
 
     # TODO Test reduced dimension
-
     @testset "Conversion to ASE (3D, with velocity)" begin
-        system, atoms, atprop, sysprop, box, bcs = make_test_system()
+        (; system, cell_vectors, periodicity, atprop, sysprop) = make_test_system()
         ase_atoms = @test_logs((:warn, r"Skipping atomic property vdw_radius"),
                                (:warn, r"Skipping atomic property covalent_radius"),
                                match_mode=:any, convert_ase(system))
 
         D = 3
         for i = 1:D
-            @test pyconvert(Vector, ase_atoms.cell[i - 1]) ≈ ustrip.(u"Å", box[i]) atol=1e-14
+            @test pyconvert(Vector, ase_atoms.cell[i - 1]) ≈ ustrip.(u"Å", cell_vectors[i]) atol=1e-14
         end
-        @assert bcs == [Periodic(), Periodic(), DirichletZero()]
+        @assert periodicity == (true, true, false)
         @test pyconvert(Vector, ase_atoms.pbc) == [true, true, false]
 
         for (i, atom) in enumerate(ase_atoms)
@@ -37,9 +36,9 @@ using UnitfulAtomic
             @test(pyconvert(Vector, ase_atoms.get_velocities()[i - 1])
                   ≈ ustrip.(sqrt(u"eV"/u"u"), atprop.velocity[i]), atol=1e-12)
 
-            @test pyconvert(String,  atom.symbol) == string(atprop.atomic_symbol[i])
-            @test pyconvert(Int,     atom.number) == atprop.atomic_number[i]
-            @test pyconvert(Float64, atom.mass)   == ustrip(u"u", atprop.atomic_mass[i])
+            @test pyconvert(String,  atom.symbol) == string(atomic_symbol(atprop.species[i]))
+            @test pyconvert(Int,     atom.number) == atomic_number(atprop.species[i])
+            @test pyconvert(Float64, atom.mass)   == ustrip(u"u", atprop.mass[i])
             @test pyconvert(Float64, atom.magmom) == atprop.magnetic_moment[i]
             @test pyconvert(Float64, atom.charge) == ustrip(u"e_au", atprop.charge[i])
         end
@@ -56,13 +55,14 @@ using UnitfulAtomic
         end
     end
 
-    @testset "Warning about mismatch between atomic symbols and numbers" begin
-        extra_atprop = (atomic_symbol=[:H, :H, :C, :N, :He],
-                        atomic_number=[1, 2, 3, 4, 5])
-        system = make_ase_system(; extra_atprop).system
-        ase_atoms = @test_logs((:warn, r"Mismatch between atomic numbers"),
+    @testset "Warning about non-default neutron count" begin
+        species = [ChemicalSpecies(:H), ChemicalSpecies(:He, n_neutrons=1),
+                   ChemicalSpecies(:Li, n_neutrons=6),
+                   ChemicalSpecies(:Be), ChemicalSpecies(:B)]
+        system = make_ase_system(; extra_atprop=(; species)).system
+        ase_atoms = @test_logs((:warn, r"Atom 2 has a non-default neutron count."),
+                               (:warn, r"Atom 3 has a non-default neutron count."),
                                match_mode=:any, convert_ase(system))
-
         expected_symbols = ["H", "He", "Li", "Be", "B"]
         for (i, atom) in enumerate(ase_atoms)
             @test pyconvert(Int, atom.number)    == i
@@ -90,10 +90,10 @@ using UnitfulAtomic
         bulk_Fe = pyconvert(AbstractSystem, ase.build.bulk("Fe"; cubic=true))
 
         a = 2.87u"Å"
-        @test bounding_box(bulk_Fe) == a .* [[1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0]]
-        @test atomic_symbol(bulk_Fe) == [:Fe, :Fe]
-        @test position(bulk_Fe) == [[0.0, 0.0, 0.0], [1.435, 1.435, 1.435]]u"Å"
-        @test velocity(bulk_Fe) == [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]*sqrt(u"eV"/u"u")
+        @test cell_vectors(bulk_Fe) == a .* ([1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0])
+        @test atomic_symbol(bulk_Fe, :) == [:Fe, :Fe]
+        @test position(bulk_Fe, :) == [[0.0, 0.0, 0.0], [1.435, 1.435, 1.435]]u"Å"
+        @test velocity(bulk_Fe, :) == [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]*sqrt(u"eV"/u"u")
     end
 
     @testset "Writing / reading files using ASE" begin
@@ -107,25 +107,27 @@ using UnitfulAtomic
     end
 
     @testset "Writing files using ASE, reading using ExtXYZ" begin
-        using PeriodicTable
         import ExtXYZ
 
         # Unfortunately the conventions used in ExtXYZ for storing extra
         # properties are *not* the same in ASE and ExtXYZ, therefore writing
         # in one and reading in another is not loss-free. We thus drop some
         # special things (atomic masses, magmoms, charges)
-        atomic_symbol = [:H, :H, :C, :N, :He]
-        atomic_number = [1, 1, 6, 7, 2]
-        atomic_mass   = [elements[at].atomic_mass for at in atomic_number]
-        extra_atprop  = (; atomic_symbol, atomic_number, atomic_mass)
+        species = ChemicalSpecies.([:H, :H, :C, :N, :He])
+        masses  = [mass(sp) for sp in species]
+        extra_atprop  = (; species, mass=masses)
 
         system = make_ase_system(; extra_atprop, drop_atprop=[:velocity]).system
         mktempdir() do d
             file = joinpath(d, "output.xyz")
             ase.io.write(file, convert_ase(system))
             newsystem = ExtXYZ.Atoms(ExtXYZ.read_frame(file))
+
+            # Keys ExtXYZ exposes as atomkeys, but they are not standard atomkeys any more.
+            extrakeys_extxyz = [:atomic_number, :atomic_symbol, :masses]
             test_approx_eq(system, newsystem; rtol=1e-6,
-                           ignore_atprop=[:initial_charges, :momenta, :masses,
+                           ignore_atprop=[:initial_charges, :momenta,
+                                          extrakeys_extxyz...,
                                           :charge, :initial_magmoms, :magnetic_moment])
         end
     end

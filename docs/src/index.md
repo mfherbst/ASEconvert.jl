@@ -43,10 +43,12 @@ mg_atb = pyconvert(AbstractSystem, mg_ase)
 
 ```julia
 using DFTK
+using PseudoPotentialData
 
 # Attach pseudopotentials, construct LDA DFT model and solve for DFT ground state
-system = attach_psp(mg_atb; Mg="hgh/lda/mg-q2")
-model  = model_LDA(system; temperature=1e-3, smearing=Smearing.MarzariVanderbilt())
+pseudopotentials = PseudoFamily("dojo.nc.sr.lda.v0_4_1.oncvpsp3.standard.upf")
+model  = model_DFT(mg_atb; temperature=1e-3, smearing=Smearing.MarzariVanderbilt(),
+                   pseudopotentials, functionals=LDA())
 basis  = PlaneWaveBasis(model; Ecut=20, kgrid=(4, 4, 4))
 scfres = self_consistent_field(basis)
 
@@ -54,18 +56,16 @@ scfres.energies
 ```
 
 ## Conversion from AtomsBase to ASE
-
 ```@example extxyz
 using ASEconvert
-using AtomsIO
+using ExtXYZ
 
 # Read an extxyz file using AtomsIO.jl.
-system = load_system("Mn3Si.extxyz")
+system = ExtXYZ.Atoms(ExtXYZ.read_frame("Mn3Si.extxyz"))
 ```
-
-This example uses [AtomsIO](https://github.com/mfherbst/AtomsIO.jl)
+This example uses [ExtXYZ](https://github.com/libAtoms/ExtXYZ.jl)
 to read the extended XYZ file file `Mn3Si.extxyz`. The data is returned
-as a subtype of `AtomsBase.AbstractSystem`
+as a subtype of [`AtomsBase.AbstractSystem`](https://juliamolsim.github.io/AtomsBase.jl/)
 (in this case an `ExtXYZ.Atoms` from [ExtXYZ](https://github.com/libAtoms/ExtXYZ.jl)).
 We can thus directly convert this system to an `ase.Atoms` using [`convert_ase`](@ref)
 and write it again as an ASE json file
@@ -73,6 +73,9 @@ and write it again as an ASE json file
 ```@example extxyz
 ase.io.write("out.json", convert_ase(system));
 ```
+
+For a more convenient and feature-rich way of reading and writing atomic
+structures in julia see [AtomsIO](https://github.com/mfherbst/AtomIO.jl).
 
 ## Employing ASE calculators in Julia
 

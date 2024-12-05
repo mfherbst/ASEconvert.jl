@@ -1,4 +1,4 @@
 channels = ["conda-forge"]
 
 [deps]
-ase = ">=3.22,<4"
+ase = ">=3.23,<3.24"

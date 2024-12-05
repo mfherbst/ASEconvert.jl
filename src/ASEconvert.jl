@@ -5,8 +5,8 @@ using Unitful
 using UnitfulAtomic
 
 export ase
-export pyconvert, pytuple  # Reexport from PythonCall
-export AbstractSystem      # Reexport from AtomsBase
+export pyconvert       # Reexport from PythonCall
+export AbstractSystem  # Reexport from AtomsBase
 
 export ASEcalculator
 export convert_ase
