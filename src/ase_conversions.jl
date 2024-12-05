@@ -25,7 +25,7 @@ function ase_to_system(S::Type{<:AbstractSystem}, ase_atoms::Py)
     # Convention in ASE isolated cells have zero (undefined) cell vectors
     if all(iszero, cell_vectors)
         if any(periodicity)
-            @warn "Ignoring ASE pbc settings which ASE cell vectors are zero (undefined)"
+            @warn "Ignoring ASE pbc settings when ASE cell vectors are zero (undefined)"
         end
         cϵll = IsolatedCell(3, typeof(1.0u"Å"))
     else
