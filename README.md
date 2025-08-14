@@ -41,7 +41,7 @@ using PythonCall
 
 # Setup calculator in ASE
 potential = "path to eam potential file"
-ase_calc = pyimport("ase.calculators.eam").EAM(potential)
+ase_calc = pyimport("ase.calculators.eam").EAM(potential=potential)
 
 # Convert into AtomsCalculator-compatible calculator
 calc = ASEcalculator(ase_calc)
