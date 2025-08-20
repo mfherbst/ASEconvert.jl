@@ -52,3 +52,14 @@ AtomsCalculators.potential_energy(system, calc)
 AtomsCalculators.forces(system, calc)
 AtomsCalculators.virial(system, calc)
 ```
+
+## Versioning guidelines
+Until a clear breaking / non-breaking convention is in place on the ASE side,
+any version bump of the ASE version referenced by this package will be considered
+as a breaking change and the semantic version of ASEconvert adapted accordingly.
+Currently the mapping of versions is as follows
+
+ ASEconvert version  | Referenced ASE version
+ ------------------- | ----------------------
+ 0.1.x               | 3.23
+ 0.2.x               | 3.26
