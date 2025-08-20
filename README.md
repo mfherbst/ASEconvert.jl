@@ -6,7 +6,7 @@
 
 Light-weight module to install ASE
 and provide routines for converting between the Atoms datastructure
-from [ASE](https://wiki.fysik.dtu.dk/ase/index.html)
+from [ASE](https://ase-lib.org/)
 and atomistic data provided in
 the [AtomsBase](https://github.com/JuliaMolSim/AtomsBase.jl) ecosystem.
 For both the package makes use of the
