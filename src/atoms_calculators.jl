@@ -24,7 +24,7 @@ AtomsCalculators.forces(system, calc_emt)
 AtomsCalculators.virial(system, calc_emt)
 ```
 """
-mutable struct ASEcalculator
+struct ASEcalculator
     calculator::PythonCall.Py
 end
 
@@ -44,13 +44,12 @@ end
 @generate_interface function AtomsCalculators.calculate(::AtomsCalculators.Forces,
         system, calc::ASEcalculator, parameters=nothing, state=nothing; kwargs...)
     fdata = calc.calculator.get_forces(convert_ase(system))
-    # We need to convert from Python row major to Julia column major
-    # and from there to Vector with SVector{3,Float64} element.
-    # We do reallocation in the end to ensure we have the correct memory alignment
-    tmp  = pyconvert(Array, fdata)
-    FT   = AtomsCalculators.promote_force_type(system, calc)
-    tmp2 = reinterpret(FT, tmp')
-    (; forces=Vector(vec(tmp2)), state)
+    # ASE returns an (n_atoms, 3) array in eV/Å. Transpose to a contiguous 3×n_atoms
+    # matrix, so that each column can be reinterpreted as one force vector of type FT
+    # (an SVector{3} carrying the eV/Å unit), then copy into a plain Vector{FT}.
+    FT = AtomsCalculators.promote_force_type(system, calc)
+    forces_3xn = permutedims(pyconvert(Matrix{Float64}, fdata))
+    (; forces=Vector(reinterpret(reshape, FT, forces_3xn)), state)
 end
 
 @generate_interface function AtomsCalculators.calculate(::AtomsCalculators.Virial,
@@ -58,6 +57,6 @@ end
     ase_system = convert_ase(system)
     sdata = calc.calculator.get_stress(ase_system)
     Ω = ase_system.get_volume()
-    stress = -Ω * ase.constraints.voigt_6_to_full_3x3_stress(sdata)
+    stress = -Ω * ase.stress.voigt_6_to_full_3x3_stress(sdata)
     (; virial=pyconvert(Array, stress) * u"eV", state)
 end

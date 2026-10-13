@@ -20,7 +20,7 @@ function __init__()
     PythonCall.pyconvert_add_rule("ase.atoms:Atoms", AbstractSystem, ase_to_system)
 
     # Make a bunch of submodules available
-    for sub in ("ase.io", "ase.build", "ase.lattice", "ase.visualize")
+    for sub in ("ase.io", "ase.build", "ase.lattice", "ase.stress", "ase.visualize")
         pyimport(sub)
     end
 end
