@@ -63,3 +63,4 @@ Currently the mapping of versions is as follows
  ------------------- | ----------------------
  0.1.x               | 3.23
  0.2.x               | 3.26
+ 0.3.x               | 3.29
