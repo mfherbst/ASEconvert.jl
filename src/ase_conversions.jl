@@ -78,7 +78,9 @@ function convert_ase(system::AbstractSystem{D}) where {D}
     if cell(system) isa IsolatedCell
         pbc = [false, false, false]
     else
-        pbc = periodicity(system)
+        # ASE only supports 3D cells, so pad the periodicity flags of
+        # lower-dimensional systems with false.
+        pbc = (periodicity(system)..., ntuple(_ -> false, max(0, 3 - D))...)
         for (i, v) in enumerate(cell_vectors(system))
             ase_cell[i, 1:D] = ustrip.(u"Å", v)
         end
@@ -86,9 +88,9 @@ function convert_ase(system::AbstractSystem{D}) where {D}
 
     for at = 1:n_atoms
         spec = species(system, at)
-        if spec.n_neutrons ≥ 0
-            @warn("Atom $at has a non-default neutron count. This information " *
-                  "is dropped when converting to ASE.")
+        if spec.n_neutrons ≥ 0  # ≥ 0 means the isotope was explicitly specified
+            @warn("Atom $at has an explicitly specified isotope. ASE only stores " *
+                  "the chemical element, so this information is dropped.")
         end
     end
 

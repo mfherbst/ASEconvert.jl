@@ -1,5 +1,5 @@
 import AtomsCalculators
-import AtomsCalculators: @generate_interface, calculate, Energy, Forces, Virial
+import AtomsCalculators: @generate_interface
 
 
 """

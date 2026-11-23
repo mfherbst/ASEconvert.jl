@@ -13,10 +13,9 @@ using UnitfulAtomic
     function make_ase_system(args...; drop_atprop=Symbol[], kwargs...)
         # ASE does not support vdw_radius and covalent_radius
         dropkeys = [:covalent_radius, :vdw_radius]
-        make_test_system(args...; drop_atprop=append!(drop_atprop, dropkeys), kwargs...)
+        make_test_system(args...; drop_atprop=union(drop_atprop, dropkeys), kwargs...)
     end
 
-    # TODO Test reduced dimension
     @testset "Conversion to ASE (3D, with velocity)" begin
         (; system, cell_vectors, periodicity, atprop, sysprop) = make_test_system()
         ase_atoms = @test_logs((:warn, r"Skipping atomic property vdw_radius"),
@@ -47,6 +46,37 @@ using UnitfulAtomic
         @test pyconvert(Float64, ase_atoms.info["charge"])   == ustrip(u"e_au", sysprop[:charge])
     end
 
+    @testset "Conversion to ASE (2D)" begin
+        # ASE only supports 3D cells, so lower-dimensional systems must be padded
+        cell2d = PeriodicCell(; cell_vectors=([1.0, 0.0]u"Å", [0.0, 1.0]u"Å"),
+                              periodicity=(true, true))
+        particles = [Atom(:H, [0.0, 0.0]u"Å"), Atom(:H, [0.5, 0.5]u"Å")]
+        system = FlexibleSystem(particles, cell2d)
+
+        ase_atoms = @test_logs((:warn, r"1D and 2D systems not yet fully supported"),
+                               match_mode=:any, convert_ase(system))
+        expected_positions = ([0.0, 0.0, 0.0], [0.5, 0.5, 0.0])
+        expected_cells     = ([1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0])
+        @test length(ase_atoms) == 2
+        for i = 1:2
+            @test pyconvert(Vector, ase_atoms.positions[i - 1]) ≈ expected_positions[i] atol=1e-14
+            @test pyconvert(Vector, ase_atoms.cell[i - 1])      ≈ expected_cells[i]     atol=1e-14
+        end
+        @test pyconvert(Vector, ase_atoms.cell[2]) ≈ expected_cells[3] atol=1e-14
+        @test pyconvert(Vector, ase_atoms.pbc) == [true, true, false]
+    end
+
+    @testset "Zero cell vectors with pbc" begin
+        # ASE allows to set pbc for cells with zero vectors, but the AtomsBase
+        # convention treats this as an isolated (undefined) cell.
+        ase_atoms = ase.Atoms("H2"; positions=[0.0 0.0 0.0; 0.0 0.0 0.7],
+                              cell=zeros(3, 3), pbc=[true, true, true])
+        system = @test_logs((:warn, r"Ignoring ASE pbc settings"),
+                            match_mode=:any, pyconvert(AbstractSystem, ase_atoms))
+        @test cell(system) isa IsolatedCell
+        @test position(system, :) == [[0.0, 0.0, 0.0], [0.0, 0.0, 0.7]]u"Å"
+    end
+
     @testset "Conversion to ASE (without velocities)" begin
         system = make_ase_system(drop_atprop=[:velocity]).system
         ase_atoms = convert_ase(system)
@@ -55,13 +85,13 @@ using UnitfulAtomic
         end
     end
 
-    @testset "Warning about non-default neutron count" begin
+    @testset "Warning about explicitly specified isotopes" begin
         species = [ChemicalSpecies(:H), ChemicalSpecies(:He, n_neutrons=1),
                    ChemicalSpecies(:Li, n_neutrons=6),
                    ChemicalSpecies(:Be), ChemicalSpecies(:B)]
         system = make_ase_system(; extra_atprop=(; species)).system
-        ase_atoms = @test_logs((:warn, r"Atom 2 has a non-default neutron count."),
-                               (:warn, r"Atom 3 has a non-default neutron count."),
+        ase_atoms = @test_logs((:warn, r"Atom 2 has an explicitly specified isotope"),
+                               (:warn, r"Atom 3 has an explicitly specified isotope"),
                                match_mode=:any, convert_ase(system))
         expected_symbols = ["H", "He", "Li", "Be", "B"]
         for (i, atom) in enumerate(ase_atoms)
@@ -144,7 +174,7 @@ using UnitfulAtomic
         system = pyconvert(AbstractSystem, ase_system)
 
         # Check we have not made a stupid coding mistake
-        @test -0.39120116 ≈ austrip(AtomsCalculators.potential_energy(system, calc_lj))
+        @test -0.39120116 ≈ austrip(AtomsCalculators.potential_energy(system, calc_lj)) atol=1e-6
 
         # Check the full AtomsCalculator test suite passes
         test_energy_forces_virial(system, calc_lj; rtol=1e-8)
