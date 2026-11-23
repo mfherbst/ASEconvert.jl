@@ -75,7 +75,7 @@ ase.io.write("out.json", convert_ase(system));
 ```
 
 For a more convenient and feature-rich way of reading and writing atomic
-structures in julia see [AtomsIO](https://github.com/mfherbst/AtomIO.jl).
+structures in julia see [AtomsIO.jl](https://github.com/mfherbst/AtomsIO.jl).
 
 ## Employing ASE calculators in Julia
 
